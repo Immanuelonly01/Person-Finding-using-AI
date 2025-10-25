@@ -1,14 +1,26 @@
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
-def cosine_sim(a, b):
-    return float(cosine_similarity(a.reshape(1, -1), b.reshape(1, -1))[0][0])
+class Matcher:
+    """Calculates cosine similarity between a target and reference embedding."""
+    def __init__(self, threshold: float):
+        self.threshold = threshold
 
-def match(ref_embeddings, probe_embedding, threshold=0.45):
-    best_id, best_score = None, -1
-    for ref_id, emb in ref_embeddings.items():
-        score = cosine_sim(emb, probe_embedding)
-        if score > best_score:
-            best_score = score
-            best_id = ref_id
-    return best_id, best_score, best_score >= threshold
+    def match(self, target_embedding: np.ndarray, reference_embedding: np.ndarray):
+        """
+        Compares two embeddings.
+        Returns: (similarity_score: float, is_match: bool)
+        """
+        if target_embedding is None or reference_embedding is None:
+            return 0.0, False
+            
+        # Reshape for sklearn's cosine_similarity function
+        target_emb = target_embedding.reshape(1, -1)
+        ref_emb = reference_embedding.reshape(1, -1)
+        
+        # Calculate cosine similarity
+        similarity = cosine_similarity(target_emb, ref_emb)[0][0]
+        
+        is_match = similarity >= self.threshold
+        
+        return similarity, is_match

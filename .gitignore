@@ -1,44 +1,49 @@
-# --- Python ---
+# .gitignore (Place this file in the project root: PersonSearchProject/)
+
+# ------------------------------------
+# 1. PYTHON / VIRTUAL ENVIRONMENT
+# ------------------------------------
+# Virtual environment directory
+venv/
+env/
+.venv/
 __pycache__/
 *.py[cod]
 *.so
 
-# --- Virtual environment ---
-venv/
-env/
-.venv/
+# ------------------------------------
+# 2. FLASK / BACKEND (Runtime Generated Files)
+# ------------------------------------
+# Ignore all generated content inside the 'static' folder
+backend/static/uploads/      # Raw files uploaded by users (videos/refs)
+backend/static/matches/      # Cropped matched face images
+backend/static/reports/      # Generated CSV/PDF reports
 
-# --- Flask / Backend ---
+# Ignore the SQLite Database file
+backend/database/*.db
+backend/database/*.sqlite
+backend/database/*.sqlite3
+
+# Flask instance folder
 instance/
-uploads/
-*.db
-*.sqlite3
 
-# --- ML / AI Models ---
-# Ignore only large model weights but keep the folder
-modules/models/*.pt
-modules/models/*.onnx
-modules/models/*.pth
-modules/models/*.bin
-modules/models/*.h5
+# ------------------------------------
+# 3. DEEP LEARNING / MODELS
+# ------------------------------------
+# Ignore only large model weights but keep the folder structure
+# NOTE: The correct path is 'backend/models/' based on our structure.
+backend/models/*.pt
+backend/models/*.onnx
+backend/models/*.pth
+backend/models/*.bin
+backend/models/*.h5
 
-# --- IDE / Editor ---
-.vscode/
-.idea/
-*.swp
-*.swo
-*.bak
+# Ultralytics/YOLO specific run directories (if created in the root)
+runs/ 
 
-# --- Logs & Reports ---
-*.log
-*.csv
-*.pdf
-
-# --- OS generated files ---
-.DS_Store
-Thumbs.db
-
-# --- Node / React / Angular (frontend) ---
+# ------------------------------------
+# 4. FRONTEND (React/Vite)
+# ------------------------------------
 node_modules/
 dist/
 build/
@@ -46,13 +51,23 @@ npm-debug.log
 yarn-debug.log
 yarn-error.log
 
-# --- Environment files ---
+# ------------------------------------
+# 5. ENVIRONMENT & CACHE
+# ------------------------------------
 .env
 .env.local
-
-# --- Jupyter / Notebooks ---
+.cache/
 .ipynb_checkpoints/
 
-# --- Test / Coverage ---
+# ------------------------------------
+# 6. IDE / OS / Test
+# ------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+.DS_Store
+Thumbs.db
 .coverage
 htmlcov/
