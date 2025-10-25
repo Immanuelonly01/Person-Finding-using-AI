@@ -1,0 +1,8 @@
+flask
+flask-cors
+opencv-python
+torch
+torchvision
+insightface==0.8.8
+numpy
+scikit-learn
