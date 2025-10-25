@@ -1,8 +1,11 @@
-flask
-flask-cors
-opencv-python
+Flask
 torch
 torchvision
-insightface==0.8.8
 numpy
+opencv-python-headless
 scikit-learn
+Pillow
+pandas
+fpdf2
+ultralytics
+flask-cors

@@ -1,6 +1,6 @@
 import os, cv2
 from config import REFERENCE_DIR
-from .face_embedding import ArcFaceEmbedder
+from .face_embedder import ArcFaceEmbedder
 
 def load_reference_embeddings():
     embedder = ArcFaceEmbedder()

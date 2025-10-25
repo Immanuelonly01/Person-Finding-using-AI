@@ -1,5 +1,5 @@
 import cv2, time
-from .face_embedding import ArcFaceEmbedder
+from .face_embedder import ArcFaceEmbedder
 from .matcher import match
 from config import THRESHOLD
 
