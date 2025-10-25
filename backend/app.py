@@ -1,19 +1,18 @@
 # D:\Projects\Final Year Project\Deploy\backend\app.py
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, url_for # ADDED url_for
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import os
 import sqlite3
 
-# --- CORRECTED IMPORTS: Use absolute paths ---
+# Import modules and configuration
 from backend.config import (
     UPLOAD_FOLDER, REPORTS_FOLDER, MATCHES_FOLDER, DB_PATH, initialize_filesystem
 )
 from backend.modules.video_processor import VideoProcessor
 from backend.modules.report_generator import ReportGenerator
 from backend.database.init_db import init_db
-# ---------------------------------------------
 
 # Call the file system initializer right before app creation
 initialize_filesystem()
@@ -35,10 +34,10 @@ def upload_files():
     video_file = request.files['video']
     ref_files = request.files.getlist('reference_images')
     
-    # 2. Save Files (This path is now guaranteed to exist)
+    # 2. Save Files
     video_filename = secure_filename(video_file.filename)
     video_path = os.path.join(app.config['UPLOAD_FOLDER'], video_filename)
-    video_file.save(video_path) # ERROR FIXED HERE!
+    video_file.save(video_path)
     
     ref_paths = []
     for i, ref_file in enumerate(ref_files):
@@ -83,7 +82,8 @@ def get_results(video_name):
             "frame": row[0],
             "timestamp": row[1],
             "similarity": f"{row[2]:.4f}",
-            "image_url": f"/api/static/matches/{row[3]}"
+            # --- CRITICAL FIX HERE: Use url_for to generate absolute URL ---
+            "image_url": url_for('serve_static', folder='matches', filename=row[3], _external=True)
         } for row in cursor.fetchall()
     ]
     conn.close()

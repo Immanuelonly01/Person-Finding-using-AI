@@ -7,9 +7,8 @@ from datetime import timedelta
 import uuid
 import numpy as np
 
-# These relative imports (..) are correct when run as a package
+# Imports remain relative, which is correct for modules within a package
 from ..config import DB_PATH, FRAME_SKIP, MATCHES_FOLDER, SIMILARITY_THRESHOLD
-
 from .face_detector import FaceDetector
 from .face_embedder import FaceEmbedder
 from .matcher import Matcher
@@ -53,6 +52,9 @@ class VideoProcessor:
                 time_delta = timedelta(milliseconds=current_time_ms)
                 timestamp_str = str(time_delta).split('.')[0] 
 
+                # --- DUPLICATE SUPPRESSION LOGIC START ---
+                best_match_in_frame = {'similarity': 0.0, 'image': None, 'box': None}
+                
                 detected_faces = self.detector.detect_faces(frame)
 
                 for face_data in detected_faces:
@@ -60,12 +62,25 @@ class VideoProcessor:
                     similarity, is_match = self.matcher.match(target_embedding, reference_embedding)
 
                     if is_match:
-                        unique_id = uuid.uuid4().hex[:8]
-                        match_filename = f"{video_filename.split('.')[0]}_F{frame_count}_{unique_id}.jpg"
-                        match_path = os.path.join(MATCHES_FOLDER, match_filename)
-                        
+                        # Only update the best match found in this frame
+                        if similarity > best_match_in_frame['similarity']:
+                            best_match_in_frame['similarity'] = similarity
+                            best_match_in_frame['image'] = face_data['image']
+                            best_match_in_frame['box'] = face_data['box']
+                
+                # Log only the single best match if it exceeds the threshold
+                if best_match_in_frame['similarity'] >= SIMILARITY_THRESHOLD:
+                    face_data = best_match_in_frame
+                    similarity = best_match_in_frame['similarity']
+                    
+                    unique_id = uuid.uuid4().hex[:8]
+                    # Note: Filename creation is robust and should not fail
+                    match_filename = f"{video_filename.split('.')[0]}_F{frame_count}_{unique_id}.jpg" 
+                    match_path = os.path.join(MATCHES_FOLDER, match_filename)
+                    
+                    # Ensure the image exists before logging (fixes the broken link issue)
+                    try:
                         cv2.imwrite(match_path, face_data['image'])
-                        
                         self._log_detection(
                             video_filename, 
                             frame_count, 
@@ -73,7 +88,11 @@ class VideoProcessor:
                             float(similarity), 
                             match_filename
                         )
-                        print(f"   🔥 Match found! Frame: {frame_count}, Sim: {similarity:.4f}")
+                        print(f"   🔥 Best Match Logged! Frame: {frame_count}, Sim: {similarity:.4f}")
+                    except Exception as e:
+                        # Log if saving the image failed, but do not crash the pipeline
+                        print(f"⚠️ Warning: Failed to save image for frame {frame_count}. Error: {e}")
+
 
             frame_count += 1
 
