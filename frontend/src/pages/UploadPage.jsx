@@ -1,7 +1,10 @@
-// frontend/src/pages/UploadPage.jsx
+// D:\Projects\Final Year Project\Deploy\frontend\src\pages\UploadPage.jsx
+
 import React, { useState } from 'react';
 import FileUpload from '../components/FileUpload';
-import ResultsDashboard from '../components/ResultsDashboard';
+// --- CRITICAL FIX: Change path from './' to '../components/' ---
+import ResultsDashboard from '../components/ResultsDashboard'; 
+
 
 const UploadPage = () => {
     const [videoName, setVideoName] = useState(null);
@@ -14,7 +17,7 @@ const UploadPage = () => {
 
     return (
         <div className="main-content" style={{ padding: '2rem 0' }}>
-            <h1 style={{ fontSize: '2rem', fontWeight: '600', color: '#1f2937', textAlign: 'center', marginBottom: '2rem' }}>Upload & Search</h1>
+            <h1 style={{ fontSize: '2rem', fontWeight: '600', color: 'var(--text-strong)', textAlign: 'center', marginBottom: '2rem' }}>Upload & Search</h1>
             
             <FileUpload onProcessingComplete={handleProcessingComplete} />
 
@@ -22,7 +25,6 @@ const UploadPage = () => {
                 <ResultsDashboard videoName={videoName} reportUrls={reportUrls} />
             )}
 
-            {/* Reset button for a new search */}
             {videoName && (
                 <div style={{ textAlign: 'center', marginTop: '2rem' }}>
                     <button

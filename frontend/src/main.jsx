@@ -9,6 +9,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 // Import Pages
 import HomePage from './pages/HomePage';
 import UploadPage from './pages/UploadPage';
+import DashboardPage from './pages/DashboardPage'; // NEW IMPORT
 import LiveFeedPage from './pages/LiveFeedPage';
 import AboutPage from './pages/AboutPage';
 
@@ -25,6 +26,10 @@ const router = createBrowserRouter([
             {
                 path: 'upload',
                 element: <UploadPage />,
+            },
+            {
+                path: 'dashboard', // NEW PATH DEFINITION
+                element: <DashboardPage />,
             },
             {
                 path: 'live-feed',
