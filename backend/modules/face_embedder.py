@@ -1,9 +1,9 @@
 # D:\Projects\Final Year Project\Deploy\backend\modules\face_embedder.py
-
-import torch
-import torchvision.transforms as transforms
 import cv2
 import numpy as np
+from werkzeug.datastructures import FileStorage
+import torch
+import torchvision.transforms as transforms
 from facenet_pytorch import InceptionResnetV1 # New import for automatic loading
 
 class FaceEmbedder:
@@ -41,17 +41,35 @@ class FaceEmbedder:
         embedding = embedding / np.linalg.norm(embedding)
         return embedding
 
-    def get_reference_embedding(self, ref_paths: list):
-        """Calculates a single averaged embedding from multiple reference images."""
+    def get_reference_embedding(self, ref_sources: list):
+        """
+        Calculates a single averaged embedding from multiple reference sources.
+        ref_sources can be a list of FileStorage objects (from API) or saved file paths.
+        """
         embeddings = []
-        for path in ref_paths:
-            img = cv2.imread(path)
-            if img is not None:
-                embedding = self.get_embedding(img) 
+        
+        for source in ref_sources:
+            img = None
+            
+            # --- Handling FileStorage Object (API Upload FIX) ---
+            if isinstance(source, FileStorage):
+                # Read file stream bytes into a NumPy array suitable for OpenCV
+                image_bytes = source.read()
+                nparr = np.frombuffer(image_bytes, np.uint8)
+                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            
+            # --- Handling File Path (If saved path is used) ---
+            elif isinstance(source, str):
+                img = cv2.imread(source)
+            
+            if img is not None and img.size > 0:
+                # Detect the face and get embedding
+                embedding = self.get_embedding(img)
                 if embedding is not None:
                     embeddings.append(embedding)
         
         if not embeddings:
             return None
             
+        # Average the embeddings for a single, robust reference vector
         return np.mean(embeddings, axis=0)

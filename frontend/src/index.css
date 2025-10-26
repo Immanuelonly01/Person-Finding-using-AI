@@ -35,12 +35,14 @@ body.dark-theme {
 /* =======================================
    TEXT ELEMENTS
    ======================================= */
-h1, h2, h3, h4, h5, h6 {
+h1, h3, h4, h5, h6 {
   color: #ffffff;
   font-weight: 700;
   text-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
 }
-
+h2{
+    color: black;
+}
 p, span, li {
   color:#000000;
   line-height: 1.7;
@@ -251,4 +253,45 @@ footer {
   .card-flex-wrapper-1-4 {
     flex: 1 1 100%;
   }
+}
+/* In D:\Projects\Final Year Project\Deploy\frontend\src\index.css */
+
+/* Add this utility button style (based on the neon aesthetic) */
+.btn-neon-search {
+    padding: 0.75rem 2rem;
+    border-radius: 6px;
+    color: var(--bg-1); /* Dark text color */
+    font-weight: bold;
+    font-size: 1.1rem;
+    cursor: pointer;
+    background: linear-gradient(90deg, var(--neon-pink), var(--neon-cyan));
+    box-shadow: 0 0 12px rgba(0, 255, 200, 0.4);
+    border: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.btn-neon-search:hover:not(:disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px 2px var(--neon-cyan);
+    background: linear-gradient(90deg, var(--neon-pink), var(--neon-blue));
+}
+.btn-neon-search:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Add a rule for smaller result grid spacing (e.g., 2 columns) */
+.results-grid-2col {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); /* Min size 320px */
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+    justify-content: center;
+}
+/* Ensure 1 column on mobile */
+@media (max-width: 600px) {
+    .results-grid-2col {
+        grid-template-columns: 1fr;
+    }
 }

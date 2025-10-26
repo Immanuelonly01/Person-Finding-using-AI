@@ -1,13 +1,15 @@
-# D:\Projects\Final Year Project\Deploy\backend\app.py (FINALIZED BACKEND)
-
-from flask import Flask, request, jsonify, send_from_directory, Response # ADDED Response
-from flask_cors import CORS
+# D:\Projects\Final Year Project\Deploy\backend\app.py (FINAL COMPLETE VERSION)
+from flask import Flask, request, jsonify, send_from_directory, Response
+from flask_cors import CORS 
 from werkzeug.utils import secure_filename
 import os
 import sqlite3
 import shutil 
-import json # ADDED json
-import cv2 # OpenCV for webcam (Ensure it's accessible)
+import json 
+import cv2 
+import uuid 
+import time
+ # For creating unique session IDs
 
 # --- Corrected Absolute Imports ---
 from backend.config import (
@@ -18,20 +20,23 @@ from backend.modules.report_generator import ReportGenerator
 from backend.database.init_db import init_db
 # ----------------------------------
 
+# --- GLOBAL EMBEDDING STORAGE (CRITICAL for two-step stream) ---
+LIVE_EMBEDDING_CACHE = {} 
+
 # Call the file system initializer
 initialize_filesystem()
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# FIX: Apply CORS globally. This should resolve the block from localhost:5173.
 CORS(app) 
 
 # Initialize DB on startup
 init_db()
 
-# --- Cleanup Function (Remains the same) ---
+# --- Cleanup Function ---
 def clear_previous_session_data():
     """Deletes all entries from DB and clears static file directories."""
-    # ... (implementation remains the same) ...
     print("🧹 Starting session cleanup...")
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -53,126 +58,165 @@ def clear_previous_session_data():
             print(f"    -> ERROR clearing folder {os.path.basename(folder_path)}: {e}")
     print("🧹 Cleanup complete.")
 
-
-# --- NEW: Live Feed Generator Function ---
-def generate_live_detections(reference_embedding):
-    """Generator function to capture webcam feed and yield processed data via SSE."""
-    processor = VideoProcessor()
+def generate_mjpeg_stream(processor, reference_embedding):
+    """Draws bounding boxes and streams processed frames as MJPEG."""
     
-    # Use 0 for the default webcam, or replace with a file path for testing
     cap = cv2.VideoCapture(0) 
     
     if not cap.isOpened():
         print("🔴 ERROR: Could not open webcam.")
-        yield "data: " + json.dumps({"status": "error", "message": "Webcam not found or access denied."}) + '\n\n'
-        return
+        return 
 
-    frame_count = 0
-    print("▶️ Starting live webcam stream processing...")
+    print("▶️ Starting MJPEG webcam stream with detection...")
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret: break
-            
-        frame_count += 1
         
-        detected_faces = processor.detector.detect_faces(frame)
-        frame_matches = [] 
+        frame_copy = frame.copy()
+        
+        detected_faces = processor.detector.detect_faces(frame_copy)
+        
+        # --- DATA PROCESSING OCCURS HERE ---
+        # The frontend will hit a separate polling route for the structured data.
+        # We only draw the boxes here.
         
         for face_data in detected_faces:
             target_embedding = processor.embedder.get_embedding(face_data['image'])
             similarity, is_match = processor.matcher.match(target_embedding, reference_embedding)
 
-            if is_match:
-                frame_matches.append({
-                    "similarity": f"{similarity:.4f}",
-                    "box": face_data['box'],
-                })
+            # Determine box color and text
+            (x1, y1, x2, y2) = face_data['box']
+            color = (0, 255, 0) if is_match else (255, 0, 0)
+            text = f"MATCH: {similarity:.2f}" if is_match else f"SIM: {similarity:.2f}"
 
-        # Yield the JSON data using SSE format
-        yield "data: " + json.dumps({
-            "status": "processing",
-            "frame": frame_count,
-            "matches": frame_matches
-        }) + '\n\n'
+            # Draw the box and text
+            cv2.rectangle(frame_copy, (x1, y1), (x2, y2), color, 2)
+            cv2.putText(frame_copy, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+        
+        # Encode and Yield frame
+        ret, buffer = cv2.imencode('.jpg', frame_copy)
+        if not ret: continue
 
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+
+    # ... (Cleanup remains the same) ...
     cap.release()
-    print("⏸️ Live stream stopped.")
+    print("⏸️ MJPEG stream stopped.")
 
-
-@app.route('/api/live/start', methods=['POST'])
-def start_live_feed():
-    """Initializes the reference image and starts the SSE stream."""
+@app.route('/api/live/upload_ref', methods=['POST']) 
+def upload_live_reference():
+    """Calculates embedding using the file stream and stores the session ID."""
     
     if 'reference_images' not in request.files:
         return jsonify({"message": "Missing reference images."}), 400
         
     ref_files = request.files.getlist('reference_images')
-    ref_paths = []
     
-    # Save reference images temporarily
-    for i, ref_file in enumerate(ref_files):
-        ref_filename = secure_filename(f"live_ref_{i}_{ref_file.filename}")
-        ref_path = os.path.join(app.config['UPLOAD_FOLDER'], ref_filename)
-        ref_file.save(ref_path)
-        ref_paths.append(ref_path)
-
-    # Calculate reference embedding once
-    processor = VideoProcessor()
-    reference_embedding = processor.embedder.get_reference_embedding(ref_paths)
+    # CRITICAL: Pass the FileStorage objects directly. NO disk saving required.
+    processor = VideoProcessor() 
+    reference_embedding = processor.embedder.get_reference_embedding(ref_files) 
 
     if reference_embedding is None:
         return jsonify({"message": "Could not generate reference embedding."}), 500
 
-    # Start SSE stream
+    # Store embedding and generate session ID
+    session_id = str(uuid.uuid4())
+    LIVE_EMBEDDING_CACHE[session_id] = reference_embedding
+    
+    print(f"🟢 LIVE Session Ready: {session_id}. Cache Size: {len(LIVE_EMBEDDING_CACHE)}")
+    
+    return jsonify({"message": "Reference uploaded successfully.", "session_id": session_id}), 200
+@app.route('/api/live/stream/<session_id>') 
+def stream_live_feed(session_id):
+    """Starts MJPEG stream by retrieving embedding from cache."""
+    if session_id not in LIVE_EMBEDDING_CACHE:
+        return jsonify({"message": "Session not found or expired."}), 404
+        
+    embedding = LIVE_EMBEDDING_CACHE.get(session_id)
+    processor = VideoProcessor()
+
+    # START MJPEG STREAM: Using the visual generator
     return Response(
-        generate_live_detections(reference_embedding), 
-        mimetype='text/event-stream'
+        generate_mjpeg_stream(processor, embedding), 
+        mimetype='multipart/x-mixed-replace; boundary=frame'
     )
-
-
+# --- BATCH PROCESSING ROUTES (Main logic retained) ---
 @app.route('/api/upload', methods=['POST'])
 def upload_files():
     """Handles batch video upload and processing."""
     
     clear_previous_session_data()
     
-    # ... (rest of upload_files logic remains the same) ...
-    # ... (code below omitted for brevity, assume final version is used) ...
-    
     if 'video' not in request.files or 'reference_images' not in request.files:
         return jsonify({"message": "Missing video or reference images."}), 400
-    
+        
     video_file = request.files['video']
     ref_files = request.files.getlist('reference_images')
     
-    # Saving files logic (omitted)
+    # 2. Save Files
     video_filename = secure_filename(video_file.filename)
     video_path = os.path.join(app.config['UPLOAD_FOLDER'], video_filename)
     video_file.save(video_path)
-    # ... (saving ref files) ...
-
-    # Processing and Report Generation (omitted)
     
-    # Assuming success for brevity:
-    # return jsonify({...}), 200
+    ref_paths = []
+    for i, ref_file in enumerate(ref_files):
+        ref_filename = secure_filename(f"ref_{i}_{ref_file.filename}")
+        ref_path = os.path.join(app.config['UPLOAD_FOLDER'], ref_filename)
+        ref_file.save(ref_path)
+        ref_paths.append(ref_path)
 
+    # 3. Start Deep Learning Processing
+    processor = VideoProcessor()
+    result = processor.process_video(video_path, ref_paths)
+    
+    # 4. Generate Reports on completion
+    if result['status'] == 'completed':
+        generator = ReportGenerator()
+        csv_report_path = generator.generate_csv(video_filename)
+        pdf_report_path = generator.generate_pdf(video_filename)
+        
+        return jsonify({
+            "message": "Processing complete.", 
+            "video_name": video_filename, 
+            "report_urls": {
+                "csv": os.path.basename(csv_report_path) if csv_report_path else None,
+                "pdf": os.path.basename(pdf_report_path) if pdf_report_path else None
+            },
+            "details": result
+        }), 200
+    else:
+        return jsonify({"message": "Processing failed.", "details": result}), 500
 
 @app.route('/api/results/<video_name>', methods=['GET'])
 def get_results(video_name):
-    """Fetches detection logs."""
-    # ... (omitted) ...
-    
-    # Assuming the final version from previous messages is used.
-    pass
-
+    """Fetches detection logs for a video from the database."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT frame_number, timestamp, similarity, match_image_path FROM detections WHERE video_filename = ? ORDER BY frame_number",
+        (video_name,)
+    )
+    results = [
+        {
+            "frame": row[0],
+            "timestamp": row[1],
+            "similarity": f"{row[2]:.4f}",
+            "image_url": f"/api/static/matches/{row[3]}"
+        } for row in cursor.fetchall()
+    ]
+    conn.close()
+    return jsonify(results)
 
 @app.route('/api/static/<folder>/<filename>')
 def serve_static(folder, filename):
     """Serves matched images and reports."""
-    # ... (omitted) ...
-    pass
-
+    if folder == 'matches':
+        return send_from_directory(MATCHES_FOLDER, filename)
+    elif folder == 'reports':
+        return send_from_directory(REPORTS_FOLDER, filename, as_attachment=True)
+    return jsonify({"message": "Not Found"}), 404
 
 if __name__ == '__main__':
     print("🚀 Starting Flask API on http://0.0.0.0:5000 (via app.py __main__)")

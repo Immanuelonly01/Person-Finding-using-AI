@@ -20,7 +20,7 @@ const DashboardPage = () => {
             
             <Card style={{ maxWidth: '60rem', margin: '0 auto', marginBottom: '3rem' }}>
                 <h2 style={{ fontSize: '1.5rem', fontWeight: '600' }}>Project Status Overview</h2>
-                <p style={{ color: 'var(--color-text-secondary)', fontSize: '1.1rem' }}>
+                <p style={{ color: 'grey', fontSize: '1.1rem' }}>
                     The system is operating smoothly. The core Deep Learning pipeline (YOLO + FaceNet) is active and ready for synchronous batch processing or real-time streaming.
                 </p>
                 <ul style={{ color: 'var(--color-text-secondary)', listStyle: 'disc', paddingLeft: '1.5rem', marginTop: '1rem' }}>
@@ -30,7 +30,7 @@ const DashboardPage = () => {
             </Card>
 
             <Card title="Download Last Run Reports" style={{ maxWidth: '60rem', margin: '0 auto' }}>
-                <p style={{ color: 'var(--color-text-secondary)' }}>
+                <p style={{ color:'grey', fontSize: '1.1rem' }}>
                     Artifacts from the last successful batch search are available below. These files are regenerated upon every new upload.
                 </p>
                 <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1.5rem' }}>
