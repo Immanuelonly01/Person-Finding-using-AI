@@ -1,79 +1,167 @@
-/* D:\Projects\Final Year Project\Deploy\frontend\src\index.css (Cleaned) */
+/* D:\Projects\Final Year Project\Deploy\frontend\src\index.css (HIGH CONTRAST DARK THEME with ANIMATIONS) */
+
+:root {
+    /* Dark Theme Variables (Standardized High Contrast) */
+    --color-bg-primary: #121212; /* Very Dark Background */
+    --color-bg-secondary: #1f2937; /* Darker secondary for card background */
+    --color-text-primary: #f0f0f0; /* Near White for main text */
+    --color-text-secondary: #a0a0a0; /* Light Gray for subtle text */
+    --color-accent: #818cf8; /* Light Indigo for highlights/icons (Glow color) */
+    --color-shadow: rgba(0, 0, 0, 0.8);
+    --color-border: #333;
+}
+
 body {
-    background-color: #f3f4f6; /* Light gray background */
-    font-family: sans-serif;
+    background-color: var(--color-bg-primary);
+    font-family: 'Inter', sans-serif;
+    color: var(--color-text-secondary);
     margin: 0;
     padding: 0;
+    transition: background-color 0.3s, color 0.3s;
 }
 .app-container {
     min-height: 100vh;
-    padding: 2rem;
-}
-.header {
-    text-align: center;
-    margin-bottom: 2.5rem;
-}
-.header h1 {
-    font-size: 2.25rem;
-    font-weight: bold;
-    color: #1f2937;
-}
-.header p {
-    font-size: 1.25rem;
-    color: #4f46e5; /* Indigo color */
-    margin-top: 0.5rem;
 }
 .main-content {
-    max-width: 56rem; /* Equivalent to max-w-4xl */
+    max-width: 75rem; 
     margin: 0 auto;
+    padding: 1rem;
 }
-.card {
-    padding: 1.5rem;
-    background-color: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+.header h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--color-text-primary);
 }
-.button-primary {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    border-radius: 0.5rem;
-    color: white;
-    font-weight: bold;
-    background-color: #4f46e5;
-    transition: background-color 0.2s;
-    border: none;
-    cursor: pointer;
-}
-.button-primary:hover:not(:disabled) {
-    background-color: #4338ca;
-}
-.button-primary:disabled {
-    background-color: #9ca3af;
-    cursor: not-allowed;
+.header p {
+    color: var(--color-accent);
+    font-size: 1.25rem;
 }
 
-/* Specific component styles */
+/* --- NAVBAR STYLES --- */
+nav {
+    background-color: var(--color-bg-secondary) !important;
+    border-bottom: 1px solid var(--color-border) !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2) !important;
+}
+nav a {
+    color: var(--color-text-primary) !important; 
+    transition: color 0.2s, background-color 0.2s !important;
+}
+nav a:hover {
+    color: var(--color-accent) !important; 
+    /* Subtle background glow/highlight */
+    background-color: rgba(129, 140, 248, 0.1) !important;
+}
+
+/* --- REUSABLE CARD STYLES --- */
+.card {
+    background-color: var(--color-bg-secondary) !important;
+    border: 1px solid var(--color-border) !important;
+    color: var(--color-text-secondary) !important; 
+    transition: all 0.3s ease;
+}
+.card h2, .card h3, .card-title {
+    color: var(--color-text-primary) !important;
+}
+
+/* --- FEATURE CARD SPECIFIC STYLING (Glow and Lift) --- */
+.feature-card-wrapper {
+    /* Ensures the link element inside is full size */
+    flex: 1 1 calc(25% - 1.5rem); 
+    min-width: 280px; 
+}
+
+.feature-card {
+    cursor: pointer;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-bg-secondary);
+    height: 100%;
+    
+    /* Animation Target Properties */
+    transform: translateY(0); 
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); 
+    
+    /* Animation Transition */
+    transition: transform 0.3s ease-out, box-shadow 0.3s ease-out, border-color 0.3s;
+}
+
+.feature-card:hover {
+    /* Lift Effect */
+    transform: translateY(-8px); 
+
+    /* Glow Effect (Outset Shadow) */
+    border-color: var(--color-accent); 
+    box-shadow: 
+        0 15px 25px -5px rgba(0, 0, 0, 0.6), /* Standard lift shadow */
+        0 0 30px -10px var(--color-accent); /* Soft inner glow */
+}
+
+.feature-card-icon {
+    color: var(--color-accent) !important;
+    transition: color 0.3s;
+}
+.feature-card:hover .feature-card-icon {
+    color: var(--color-text-primary) !important;
+}
+
+/* Ensure secondary text in feature card is visible */
+.feature-card p {
+    color: var(--color-text-secondary);
+}
+.feature-card h3 {
+    color: var(--color-text-primary);
+}
+
+
+/* --- RESULTS GRID AND IMAGES --- */
 .result-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 1.5rem;
-    margin-top: 1.5rem;
 }
 .result-item {
     padding: 1rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border);
     border-radius: 0.5rem;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-    transition: box-shadow 0.2s;
-}
-.result-item:hover {
-    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1);
+    background-color: var(--color-bg-secondary);
+    box-shadow: 0 1px 3px 0 var(--color-shadow);
 }
 .result-image {
-    width: 100%;
+    max-width: 100%;
     height: auto;
     border-radius: 0.375rem;
-    border: 2px solid #e5e7eb;
-    margin-top: 0.75rem;
+    border: 2px solid var(--color-border);
+}
+
+
+/* --- MEDIA QUERIES FOR RESPONSIVENESS --- */
+
+/* Small Screens (Mobile - up to 600px) */
+@media (max-width: 600px) {
+    .header h1 {
+        font-size: 2rem;
+    }
+    nav {
+        padding: 1rem;
+    }
+    nav > div {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+    .feature-card-wrapper {
+        flex: 1 1 100%; 
+    }
+}
+
+/* Medium Screens (Tablet - up to 1024px) */
+@media (min-width: 601px) and (max-width: 1024px) {
+    .feature-card-wrapper {
+        flex: 1 1 calc(50% - 1.5rem); 
+    }
+}
+/* Large Screens (Desktop - 1025px and up) */
+@media (min-width: 1025px) {
+    .feature-card-wrapper {
+        flex: 1 1 calc(25% - 1.5rem); 
+    }
 }
