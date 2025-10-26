@@ -52,8 +52,8 @@ class VideoProcessor:
                 time_delta = timedelta(milliseconds=current_time_ms)
                 timestamp_str = str(time_delta).split('.')[0] 
 
-                # --- DUPLICATE SUPPRESSION LOGIC START ---
-                best_match_in_frame = {'similarity': 0.0, 'image': None, 'box': None}
+                # --- DEDUPLICATION CORE: Track only the best match in this frame ---
+                best_match_in_frame = {'similarity': 0.0, 'image': None}
                 
                 detected_faces = self.detector.detect_faces(frame)
 
@@ -62,25 +62,26 @@ class VideoProcessor:
                     similarity, is_match = self.matcher.match(target_embedding, reference_embedding)
 
                     if is_match:
-                        # Only update the best match found in this frame
+                        # Update the structure only if this detection is the highest confidence
                         if similarity > best_match_in_frame['similarity']:
                             best_match_in_frame['similarity'] = similarity
                             best_match_in_frame['image'] = face_data['image']
-                            best_match_in_frame['box'] = face_data['box']
                 
-                # Log only the single best match if it exceeds the threshold
+                # --- LOGGING: Execute only ONCE outside the inner loop ---
                 if best_match_in_frame['similarity'] >= SIMILARITY_THRESHOLD:
-                    face_data = best_match_in_frame
+                    
                     similarity = best_match_in_frame['similarity']
                     
+                    # Generate unique filename
                     unique_id = uuid.uuid4().hex[:8]
-                    # Note: Filename creation is robust and should not fail
                     match_filename = f"{video_filename.split('.')[0]}_F{frame_count}_{unique_id}.jpg" 
                     match_path = os.path.join(MATCHES_FOLDER, match_filename)
                     
-                    # Ensure the image exists before logging (fixes the broken link issue)
+                    # 1. Save the image
                     try:
-                        cv2.imwrite(match_path, face_data['image'])
+                        cv2.imwrite(match_path, best_match_in_frame['image'])
+                        
+                        # 2. Log the successful save
                         self._log_detection(
                             video_filename, 
                             frame_count, 
@@ -90,9 +91,7 @@ class VideoProcessor:
                         )
                         print(f"   🔥 Best Match Logged! Frame: {frame_count}, Sim: {similarity:.4f}")
                     except Exception as e:
-                        # Log if saving the image failed, but do not crash the pipeline
                         print(f"⚠️ Warning: Failed to save image for frame {frame_count}. Error: {e}")
-
 
             frame_count += 1
 
