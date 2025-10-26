@@ -157,7 +157,7 @@ const LiveFeedPage = () => {
                 </div>
 
                 {/* Match Log Display */}
-                <h3 style={{ borderBottom: 'none', marginBottom: '0.5rem', display: 'flex', alignItems: 'center' }}>
+                <h3 style={{ borderBottom: 'none', marginBottom: '0.5rem', display: 'flex', alignItems: 'center',color:'red' }}>
                     <IoStatsChart style={{ marginRight: '0.5rem', color: 'var(--color-accent)' }} />
                     Real-Time Match Log ({matchData.length} entries)
                 </h3>
@@ -169,11 +169,11 @@ const LiveFeedPage = () => {
                                 <p style={{ color: 'var(--color-text-primary)', fontWeight: 'bold', marginBottom: '0.2rem' }}>
                                     {match.match_status === 'Match Found' ? '🚨 MATCH FOUND' : 'Face Detected'}
                                 </p>
-                                <small style={{ color: 'var(--color-accent)' }}>Time: {match.timestamp} | Similarity: {match.similarity}</small>
+                                <small style={{ color: 'black' }}>Time: {match.timestamp} |<span style={{color:'red'}}>Similarity: {match.similarity}</span> </small>
                             </div>
                         ))
                     ) : (
-                        <p style={{ color: status === 'LIVE' ? 'var(--color-accent)' : 'var(--color-text-secondary)' }}>
+                        <p style={{ color: status === 'LIVE' ? 'red' : 'black' }}>
                             {status === 'LIVE' ? "No matches detected in view." : "Log is empty."}
                         </p>
                     )}
