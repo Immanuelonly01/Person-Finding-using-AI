@@ -1,4 +1,4 @@
-// frontend/src/main.jsx (Final Setup)
+// frontend/src/main.jsx (Final Setup with Auth Route)
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
@@ -9,9 +9,10 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 // Import Pages
 import HomePage from './pages/HomePage';
 import UploadPage from './pages/UploadPage';
-import DashboardPage from './pages/DashboardPage'; // NEW IMPORT
+import DashboardPage from './pages/DashboardPage'; 
 import LiveFeedPage from './pages/LiveFeedPage';
 import AboutPage from './pages/AboutPage';
+import AuthPage from './pages/AuthPage'; // CRITICAL: Import the new Auth Page
 
 // Define Routes
 const router = createBrowserRouter([
@@ -28,7 +29,7 @@ const router = createBrowserRouter([
                 element: <UploadPage />,
             },
             {
-                path: 'dashboard', // NEW PATH DEFINITION
+                path: 'dashboard',
                 element: <DashboardPage />,
             },
             {
@@ -38,6 +39,10 @@ const router = createBrowserRouter([
             {
                 path: 'about',
                 element: <AboutPage />,
+            },
+            {
+                path: 'auth', // NEW ROUTE FOR LOGIN/REGISTER
+                element: <AuthPage />,
             },
         ],
     },

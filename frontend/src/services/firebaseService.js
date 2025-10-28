@@ -1,18 +1,17 @@
-// frontend/src/services/firebaseService.js
+// frontend/src/services/firebaseService.js (FINALIZED & CLEANED)
 
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, signInAnonymously } from 'firebase/auth';
-import { getFirestore, doc, setDoc, collection, query, getDocs, orderBy } from 'firebase/firestore';
+import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { getFirestore, doc, setDoc, collection, query, getDocs, orderBy, getDoc } from 'firebase/firestore'; 
 
-// --- IMPORTANT: Replace with your actual Firebase Configuration ---
+// --- CRITICAL FIX: USING YOUR ACTUAL PROJECT CONFIGURATION ---
 const firebaseConfig = {
-    // Note: You MUST update these placeholders with your project's actual keys for this to work.
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "SENDER_ID",
-    appId: "APP_ID"
+  apiKey: "AIzaSyDiyK_WlKaTQJ4h7WkuGiUnF850rzprp8Y",
+  authDomain: "person-search-using-ai-c5e6b.firebaseapp.com",
+  projectId: "person-search-using-ai-c5e6b",
+  storageBucket: "person-search-using-ai-c5e6b.firebasestorage.app",
+  messagingSenderId: "735068010061",
+  appId: "1:735068010061:web:4ea47448b6856c66dbce04"
 };
 
 // Initialize Firebase App
@@ -25,30 +24,31 @@ let userId = null; // Global variable to hold the current user's UID
 // --- Authentication Functions ---
 
 /**
- * Initializes the Firebase Auth Listener and attempts anonymous sign-in if no user is found.
- * This is crucial for maintaining session state.
+ * Initializes the Firebase Auth Listener.
+ * It fetches the user's name (if available) after authentication status changes.
  */
-export const initAuthListener = (setUser) => {
-    onAuthStateChanged(auth, (user) => {
+export const initAuthListener = (setUserCallback) => {
+    onAuthStateChanged(auth, async (user) => {
         if (user) {
             userId = user.uid;
-            // isAuthenticated is true ONLY if the user signed up with email/password (not anonymous)
             const isAuthenticated = !user.isAnonymous;
+            
+            // Fetch profile data (name) if available
+            const profile = await fetchUserProfile(user.uid); 
 
-            setUser({ 
+            setUserCallback({ 
                 uid: user.uid, 
-                email: user.email || 'Guest User', // Use 'Guest User' if email is null
-                isAuthenticated: isAuthenticated
+                email: user.email || 'Guest User',
+                isAuthenticated: isAuthenticated,
+                // Store first name for display purposes, defaulting if profile doesn't exist
+                name: profile ? profile.firstName : (isAuthenticated && user.email ? user.email.split('@')[0] : 'Guest') 
             }); 
             
         } else {
-            // If no user is found (e.g., after initial load or logout), sign in anonymously 
-            // to enable Firestore read/write access for guests/unlogged users (if configured).
-            signInAnonymously(auth).catch((error) => {
-                console.error("Anonymous sign-in failed:", error);
-                setUser({ uid: null, email: null, isAuthenticated: false });
-            });
+            // User is signed out. Set global state to unauthenticated/guest.
+            // We rely on the Login page to initiate sign-in if needed.
             userId = null;
+            setUserCallback({ uid: null, email: null, name: 'Guest', isAuthenticated: false });
         }
     });
 };
@@ -65,7 +65,36 @@ export const logoutUser = () => {
     return signOut(auth);
 };
 
-// --- Firestore Data Functions ---
+// --- Firestore Data Functions (User Profile) ---
+
+/**
+ * Stores First Name and Last Name in a dedicated 'users' collection after registration.
+ */
+export const saveUserName = async (uid, firstName, lastName) => {
+    const userRef = doc(db, 'users', uid);
+    await setDoc(userRef, {
+        firstName: firstName,
+        lastName: lastName,
+        fullName: `${firstName} ${lastName}`,
+        createdAt: new Date().toISOString(),
+    }, { merge: true });
+};
+
+/**
+ * Fetches user profile data (like name) from Firestore.
+ */
+export const fetchUserProfile = async (uid) => {
+    if (!uid) return null;
+    const userRef = doc(db, 'users', uid);
+    const docSnap = await getDoc(userRef);
+    if (docSnap.exists()) {
+        return docSnap.data();
+    }
+    return null;
+};
+
+
+// --- Firestore Data Functions (Job Logging) ---
 
 /**
  * Logs a successful batch search job to the user's Firestore collection.
@@ -103,7 +132,6 @@ export const fetchUserActivity = async () => {
     if (!userId) {
         return [];
     }
-    // Path: /users/{userId}/search_jobs/
     const jobsCollectionRef = collection(db, `users/${userId}/search_jobs`);
     const q = query(jobsCollectionRef, orderBy('processedAt', 'desc'));
     
