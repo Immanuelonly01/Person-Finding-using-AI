@@ -1,4 +1,5 @@
-# D:\Projects\Final Year Project\Deploy\backend\app.py (FINAL COMPLETE VERSION)
+# D:\Projects\Final Year Project\Deploy\backend\app.py
+
 from flask import Flask, request, jsonify, send_from_directory, Response
 from flask_cors import CORS 
 from werkzeug.utils import secure_filename
@@ -6,10 +7,9 @@ import os
 import sqlite3
 import shutil 
 import json 
-import cv2 
+import cv2 # OpenCV for webcam/video processing
 import uuid 
-import time
- # For creating unique session IDs
+import time 
 
 # --- Corrected Absolute Imports ---
 from backend.config import (
@@ -28,7 +28,6 @@ initialize_filesystem()
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-# FIX: Apply CORS globally. This should resolve the block from localhost:5173.
 CORS(app) 
 
 # Initialize DB on startup
@@ -58,9 +57,12 @@ def clear_previous_session_data():
             print(f"    -> ERROR clearing folder {os.path.basename(folder_path)}: {e}")
     print("🧹 Cleanup complete.")
 
+
+# --- LIVE FEED: MJPEG Generator (Step 2 Logic) ---
 def generate_mjpeg_stream(processor, reference_embedding):
     """Draws bounding boxes and streams processed frames as MJPEG."""
     
+    # Use 0 for the default webcam
     cap = cv2.VideoCapture(0) 
     
     if not cap.isOpened():
@@ -77,46 +79,53 @@ def generate_mjpeg_stream(processor, reference_embedding):
         
         detected_faces = processor.detector.detect_faces(frame_copy)
         
-        # --- DATA PROCESSING OCCURS HERE ---
-        # The frontend will hit a separate polling route for the structured data.
-        # We only draw the boxes here.
-        
         for face_data in detected_faces:
             target_embedding = processor.embedder.get_embedding(face_data['image'])
             similarity, is_match = processor.matcher.match(target_embedding, reference_embedding)
 
-            # Determine box color and text
+            # Determine box color and text based on match status
             (x1, y1, x2, y2) = face_data['box']
-            color = (0, 255, 0) if is_match else (255, 0, 0)
-            text = f"MATCH: {similarity:.2f}" if is_match else f"SIM: {similarity:.2f}"
+            
+            if is_match:
+                color = (0, 255, 0) # Green BGR for Match
+                text = f"MATCH: {similarity:.2f}"
+            else:
+                color = (255, 0, 0) # Blue BGR for No Match
+                text = f"SIM: {similarity:.2f}"
 
-            # Draw the box and text
+            # Draw the box and text on the frame
             cv2.rectangle(frame_copy, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame_copy, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
         
-        # Encode and Yield frame
+        # Encode the frame into JPEG format
         ret, buffer = cv2.imencode('.jpg', frame_copy)
         if not ret: continue
 
+        # Yield the JPEG frame as part of the multipart stream
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
 
-    # ... (Cleanup remains the same) ...
+    # CLEANUP: Remove embedding from cache when stream ends
+    # Note: The stream thread usually dies if the client closes the connection.
+    # The cache removal logic is often simplified here, but in a production system, 
+    # it would be wrapped around the generator call or handled by a timer.
     cap.release()
     print("⏸️ MJPEG stream stopped.")
 
+
+# --- LIVE FEED: Step 1 (POST) - Upload Reference and Calculate Embedding ---
 @app.route('/api/live/upload_ref', methods=['POST']) 
 def upload_live_reference():
-    """Calculates embedding using the file stream and stores the session ID."""
+    """Calculates embedding, stores it in cache, and returns a session ID."""
     
     if 'reference_images' not in request.files:
         return jsonify({"message": "Missing reference images."}), 400
         
     ref_files = request.files.getlist('reference_images')
     
-    # CRITICAL: Pass the FileStorage objects directly. NO disk saving required.
+    # Calculate embedding (pass FileStorage list directly)
     processor = VideoProcessor() 
-    reference_embedding = processor.embedder.get_reference_embedding(ref_files) 
+    reference_embedding = processor.embedder.get_reference_embedding(ref_files)
 
     if reference_embedding is None:
         return jsonify({"message": "Could not generate reference embedding."}), 500
@@ -128,6 +137,9 @@ def upload_live_reference():
     print(f"🟢 LIVE Session Ready: {session_id}. Cache Size: {len(LIVE_EMBEDDING_CACHE)}")
     
     return jsonify({"message": "Reference uploaded successfully.", "session_id": session_id}), 200
+
+
+# --- LIVE FEED: Step 2 (GET) - Start Streaming ---
 @app.route('/api/live/stream/<session_id>') 
 def stream_live_feed(session_id):
     """Starts MJPEG stream by retrieving embedding from cache."""
@@ -135,14 +147,18 @@ def stream_live_feed(session_id):
         return jsonify({"message": "Session not found or expired."}), 404
         
     embedding = LIVE_EMBEDDING_CACHE.get(session_id)
-    processor = VideoProcessor()
+    
+    # Initialize processor inside the stream route handler
+    processor = VideoProcessor() 
 
-    # START MJPEG STREAM: Using the visual generator
+    # START MJPEG STREAM: Pass the initialized objects
     return Response(
         generate_mjpeg_stream(processor, embedding), 
         mimetype='multipart/x-mixed-replace; boundary=frame'
     )
-# --- BATCH PROCESSING ROUTES (Main logic retained) ---
+
+
+# --- BATCH PROCESSING ROUTES ---
 @app.route('/api/upload', methods=['POST'])
 def upload_files():
     """Handles batch video upload and processing."""
@@ -169,7 +185,9 @@ def upload_files():
 
     # 3. Start Deep Learning Processing
     processor = VideoProcessor()
-    result = processor.process_video(video_path, ref_paths)
+    # Note: process_video needs to be updated to process_video_generator 
+    # to align with sequential output logic, but here we call the older sync version for file saving.
+    result = processor.process_video(video_path, ref_paths) 
     
     # 4. Generate Reports on completion
     if result['status'] == 'completed':

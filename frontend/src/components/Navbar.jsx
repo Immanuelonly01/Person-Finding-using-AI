@@ -1,13 +1,29 @@
-// frontend/src/components/Navbar.jsx (Finalized with Dashboard Link)
+// frontend/src/components/Navbar.jsx (Finalized with Auth Logic)
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { IoHome, IoCloudUpload, IoVideocam, IoInformationCircle, IoStatsChart } from 'react-icons/io5';
+import { Link, useNavigate } from 'react-router-dom';
+import { IoHome, IoCloudUpload, IoVideocam, IoInformationCircle, IoStatsChart, IoLogIn, IoLogOut } from 'react-icons/io5';
+import { logoutUser } from '../services/firebaseService'; // Import the logout function
 
-const Navbar = () => {
+// Navbar now accepts the user object as a prop
+const Navbar = ({ user }) => {
+    const navigate = useNavigate();
+
+    const handleLogout = async () => {
+        try {
+            await logoutUser();
+            alert("Logged out successfully.");
+            navigate('/');
+        } catch (error) {
+            console.error("Logout failed:", error);
+            alert("Logout failed. See console.");
+        }
+    };
+
     const navItems = [
         { name: 'Home', path: '/', icon: IoHome },
         { name: 'Upload Search', path: '/upload', icon: IoCloudUpload },
-        { name: 'Dashboard', path: '/dashboard', icon: IoStatsChart }, // NEW LINK
+        // Dashboard link requires the user to be signed in
+        { name: 'Dashboard', path: '/dashboard', icon: IoStatsChart, requiresAuth: true }, 
         { name: 'Live Feed (WIP)', path: '/live-feed', icon: IoVideocam },
         { name: 'About', path: '/about', icon: IoInformationCircle },
     ];
@@ -18,26 +34,71 @@ const Navbar = () => {
                 <Link to="/" style={{ color: 'var(--neon-cyan)', fontSize: '1.5rem', fontWeight: 'bold', textDecoration: 'none' }}>
                     PersonSearch FYP
                 </Link>
+                
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {navItems.map((item) => (
-                        <Link 
-                            key={item.name} 
-                            to={item.path} 
+                    
+                    {/* Primary Navigation Links */}
+                    {navItems.map((item) => {
+                        // Conditionally render Dashboard link
+                        if (item.requiresAuth && !user.isAuthenticated) {
+                            return null;
+                        }
+                        return (
+                            <Link 
+                                key={item.name} 
+                                to={item.path} 
+                                style={{ 
+                                    color: 'var(--text-strong)', 
+                                    textDecoration: 'none', 
+                                    padding: '0.5rem 0.75rem', 
+                                    transition: 'color 0.2s, background-color 0.2s', 
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                onMouseOver={e => { e.target.style.color = 'var(--neon-cyan)'; e.target.style.textShadow = '0 0 10px var(--neon-cyan)'; }}
+                                onMouseOut={e => { e.target.style.color = 'var(--text-strong)'; e.target.style.textShadow = 'none'; }}
+                            >
+                                <item.icon style={{ marginRight: '0.5rem' }} />
+                                {item.name}
+                            </Link>
+                        );
+                    })}
+                    
+                    {/* AUTH BUTTONS: Conditional rendering */}
+                    {user.isAuthenticated ? (
+                        <button onClick={handleLogout} 
                             style={{ 
-                                color: 'var(--text-strong)', 
-                                textDecoration: 'none', 
+                                border: 'none', 
+                                background: 'transparent', 
+                                color: 'var(--neon-pink)', 
+                                cursor: 'pointer', 
+                                display: 'flex', 
+                                alignItems: 'center',
                                 padding: '0.5rem 0.75rem', 
-                                transition: 'color 0.2s, background-color 0.2s', 
-                                display: 'flex',
-                                alignItems: 'center'
                             }}
-                            onMouseOver={e => { e.target.style.color = 'var(--neon-cyan)'; e.target.style.textShadow = '0 0 10px var(--neon-cyan)'; }}
-                            onMouseOut={e => { e.target.style.color = 'var(--text-strong)'; e.target.style.textShadow = 'none'; }}
+                            onMouseOver={e => { e.currentTarget.style.color = 'var(--text-strong)'; e.currentTarget.style.textShadow = '0 0 10px var(--neon-pink)'; }}
+                            onMouseOut={e => { e.currentTarget.style.color = 'var(--neon-pink)'; e.currentTarget.style.textShadow = 'none'; }}
                         >
-                            <item.icon style={{ marginRight: '0.5rem' }} />
-                            {item.name}
+                            <IoLogOut style={{ marginRight: '0.3rem' }} /> Logout
+                        </button>
+                    ) : (
+                        <Link to="/auth" 
+                            style={{ 
+                                color: 'var(--neon-cyan)', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                fontWeight: 'bold',
+                                padding: '0.5rem 0.75rem',
+                                border: '1px solid var(--neon-cyan)',
+                                borderRadius: '4px',
+                                transition: 'background-color 0.2s',
+                            }}
+                            onMouseOver={e => { e.target.style.backgroundColor = 'rgba(0, 255, 209, 0.1)'; }}
+                            onMouseOut={e => { e.target.style.backgroundColor = 'transparent'; }}
+                        >
+                            <IoLogIn style={{ marginRight: '0.3rem' }} /> Login
                         </Link>
-                    ))}
+                    )}
                 </div>
             </div>
         </nav>

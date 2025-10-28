@@ -1,11 +1,12 @@
 // frontend/src/services/firebaseService.js
+
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithCustomToken, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, signInAnonymously } from 'firebase/auth';
 import { getFirestore, doc, setDoc, collection, query, getDocs, orderBy } from 'firebase/firestore';
 
 // --- IMPORTANT: Replace with your actual Firebase Configuration ---
-// For this environment, we use placeholders; in a real project, use your API keys.
 const firebaseConfig = {
+    // Note: You MUST update these placeholders with your project's actual keys for this to work.
     apiKey: "YOUR_API_KEY",
     authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
     projectId: "YOUR_PROJECT_ID",
@@ -19,19 +20,34 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-let userId = null; // Store user ID globally after successful auth
+let userId = null; // Global variable to hold the current user's UID
 
 // --- Authentication Functions ---
+
+/**
+ * Initializes the Firebase Auth Listener and attempts anonymous sign-in if no user is found.
+ * This is crucial for maintaining session state.
+ */
 export const initAuthListener = (setUser) => {
-    // Listener sets the global user state upon login/logout
     onAuthStateChanged(auth, (user) => {
         if (user) {
             userId = user.uid;
-            // isAuthenticated is true if the user signed up (not anonymous)
-            setUser({ uid: user.uid, email: user.email, isAuthenticated: !user.isAnonymous }); 
+            // isAuthenticated is true ONLY if the user signed up with email/password (not anonymous)
+            const isAuthenticated = !user.isAnonymous;
+
+            setUser({ 
+                uid: user.uid, 
+                email: user.email || 'Guest User', // Use 'Guest User' if email is null
+                isAuthenticated: isAuthenticated
+            }); 
+            
         } else {
-            // Optional: Handle redirection to login if no user is found
-            setUser({ uid: null, email: null, isAuthenticated: false });
+            // If no user is found (e.g., after initial load or logout), sign in anonymously 
+            // to enable Firestore read/write access for guests/unlogged users (if configured).
+            signInAnonymously(auth).catch((error) => {
+                console.error("Anonymous sign-in failed:", error);
+                setUser({ uid: null, email: null, isAuthenticated: false });
+            });
             userId = null;
         }
     });
@@ -51,9 +67,12 @@ export const logoutUser = () => {
 
 // --- Firestore Data Functions ---
 
+/**
+ * Logs a successful batch search job to the user's Firestore collection.
+ */
 export const logSearchJob = async (jobData, videoFilename, reportFilenames) => {
     if (!userId) {
-        throw new Error("User must be logged in to log activity.");
+        throw new Error("User must be authenticated to log activity.");
     }
     
     // Path: /users/{userId}/search_jobs/{docId}
@@ -62,14 +81,14 @@ export const logSearchJob = async (jobData, videoFilename, reportFilenames) => {
     
     const dataToStore = {
         video_name: videoFilename,
-        ...jobData, // Includes details like frames_processed, etc.
+        ...jobData, 
         processedAt: new Date().toISOString(),
         
-        // Store report filenames for retrieval on the backend
+        // Store report filenames 
         csv_filename: reportFilenames.csv_filename,
         pdf_filename: reportFilenames.pdf_filename,
         
-        // Create a dedicated download URL unique to this job/user for the backend route
+        // Create a dedicated download URL for the backend route
         downloadUrl: `http://localhost:5000/api/report/download_job/${userId}/${jobRef.id}`
     };
 
@@ -77,7 +96,9 @@ export const logSearchJob = async (jobData, videoFilename, reportFilenames) => {
     return jobRef.id;
 };
 
-// Fetches all search activity for the current user
+/**
+ * Fetches all search activity for the current user, ordered by date.
+ */
 export const fetchUserActivity = async () => {
     if (!userId) {
         return [];
