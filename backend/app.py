@@ -1,13 +1,13 @@
-# D:\Projects\Final Year Project\Deploy\backend\app.py
+# D:\Projects\Final Year Project\Deploy\backend\app.py (FINAL CORS FIX)
 
 from flask import Flask, request, jsonify, send_from_directory, Response
-from flask_cors import CORS 
+from flask_cors import CORS # Ensure this is imported
 from werkzeug.utils import secure_filename
 import os
 import sqlite3
 import shutil 
 import json 
-import cv2 # OpenCV for webcam/video processing
+import cv2 
 import uuid 
 import time 
 
@@ -28,12 +28,16 @@ initialize_filesystem()
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-CORS(app) 
+
+# --- CRITICAL FIX: EXPLICIT CORS CONFIGURATION ---
+# We DELETE the generic CORS(app) and REPLACE it with the explicit rule.
+CORS(app, resources={r"/api/*": {"origins": "http://localhost:5173"}}) 
+# --------------------------------------------------
 
 # Initialize DB on startup
 init_db()
 
-# --- Cleanup Function ---
+# --- Cleanup Function (Retained) ---
 def clear_previous_session_data():
     """Deletes all entries from DB and clears static file directories."""
     print("🧹 Starting session cleanup...")
@@ -62,7 +66,6 @@ def clear_previous_session_data():
 def generate_mjpeg_stream(processor, reference_embedding):
     """Draws bounding boxes and streams processed frames as MJPEG."""
     
-    # Use 0 for the default webcam
     cap = cv2.VideoCapture(0) 
     
     if not cap.isOpened():
@@ -83,7 +86,6 @@ def generate_mjpeg_stream(processor, reference_embedding):
             target_embedding = processor.embedder.get_embedding(face_data['image'])
             similarity, is_match = processor.matcher.match(target_embedding, reference_embedding)
 
-            # Determine box color and text based on match status
             (x1, y1, x2, y2) = face_data['box']
             
             if is_match:
@@ -93,22 +95,15 @@ def generate_mjpeg_stream(processor, reference_embedding):
                 color = (255, 0, 0) # Blue BGR for No Match
                 text = f"SIM: {similarity:.2f}"
 
-            # Draw the box and text on the frame
             cv2.rectangle(frame_copy, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame_copy, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
         
-        # Encode the frame into JPEG format
         ret, buffer = cv2.imencode('.jpg', frame_copy)
         if not ret: continue
 
-        # Yield the JPEG frame as part of the multipart stream
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
 
-    # CLEANUP: Remove embedding from cache when stream ends
-    # Note: The stream thread usually dies if the client closes the connection.
-    # The cache removal logic is often simplified here, but in a production system, 
-    # it would be wrapped around the generator call or handled by a timer.
     cap.release()
     print("⏸️ MJPEG stream stopped.")
 
@@ -123,14 +118,12 @@ def upload_live_reference():
         
     ref_files = request.files.getlist('reference_images')
     
-    # Calculate embedding (pass FileStorage list directly)
     processor = VideoProcessor() 
     reference_embedding = processor.embedder.get_reference_embedding(ref_files)
 
     if reference_embedding is None:
         return jsonify({"message": "Could not generate reference embedding."}), 500
 
-    # Store embedding and generate session ID
     session_id = str(uuid.uuid4())
     LIVE_EMBEDDING_CACHE[session_id] = reference_embedding
     
@@ -148,7 +141,6 @@ def stream_live_feed(session_id):
         
     embedding = LIVE_EMBEDDING_CACHE.get(session_id)
     
-    # Initialize processor inside the stream route handler
     processor = VideoProcessor() 
 
     # START MJPEG STREAM: Pass the initialized objects
@@ -185,8 +177,6 @@ def upload_files():
 
     # 3. Start Deep Learning Processing
     processor = VideoProcessor()
-    # Note: process_video needs to be updated to process_video_generator 
-    # to align with sequential output logic, but here we call the older sync version for file saving.
     result = processor.process_video(video_path, ref_paths) 
     
     # 4. Generate Reports on completion

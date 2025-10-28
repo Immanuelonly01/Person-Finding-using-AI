@@ -1,7 +1,7 @@
-// frontend/src/components/FileUpload.jsx (LIGHT THEME VERSION)
+// frontend/src/components/FileUpload.jsx (LIGHT THEME WITH ORIGINAL BUTTON)
 import React, { useState } from 'react';
 import { IoSearch, IoImage, IoVideocamOutline, IoTime, IoStatsChart } from 'react-icons/io5';
-import Card from './Card';
+import Card from './Card'; 
 import { uploadAndProcess } from '../services/api';
 import { logSearchJob } from '../services/firebaseService';
 import { useOutletContext } from 'react-router-dom';
@@ -35,9 +35,7 @@ const FileUpload = () => {
 
         const formData = new FormData();
         formData.append('video', videoFile);
-        refImages.forEach(img => {
-            formData.append('reference_images', img);
-        });
+        refImages.forEach(img => formData.append('reference_images', img));
 
         try {
             const response = await uploadAndProcess(formData, (event) => {
@@ -72,7 +70,6 @@ const FileUpload = () => {
             }
 
             onProcessingComplete(videoFilename, fullReportUrls, finalDetails);
-
         } catch (error) {
             console.error("Upload/Processing failed:", error);
             setStatusMessage(`Processing failed: ${error.message}. Check backend console.`);
@@ -84,71 +81,66 @@ const FileUpload = () => {
     const displayProgress = (uploadProgress < 100) ? uploadProgress : processingPercent;
 
     return (
-        <Card title="1. Start Automated Search" style={{ maxWidth: '40rem', margin: '2rem auto', backgroundColor: '#fff', color: '#222' }}>
+        <Card title="1. Start Automated Search" style={{ maxWidth: '40rem', margin: '2rem auto', backgroundColor: '#ffffff', color: '#1a1a1a' }}>
             
-            {/* Video Upload */}
+            {/* Video Input */}
             <div style={{
                 marginBottom: '1rem',
-                border: videoFile ? '2px solid #0078D7' : '2px dashed #ccc',
+                border: videoFile ? '2px solid #333' : '2px dashed #999',
                 padding: '1rem',
                 borderRadius: '10px',
                 display: 'flex',
                 alignItems: 'center',
-                backgroundColor: '#fafafa'
+                backgroundColor: '#f9f9f9'
             }}>
-                <IoVideocamOutline size={24} color="#0078D7" style={{ marginRight: '1rem' }} />
+                <IoVideocamOutline size={24} color="#222" style={{ marginRight: '1rem' }} />
                 <div style={{ flexGrow: 1 }}>
-                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#222' }}>CCTV Video (.mp4, .avi)</label>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#111' }}>
+                        CCTV Video (.mp4, .avi)
+                    </label>
                     <input type="file" onChange={(e) => setVideoFile(e.target.files[0])} accept="video/*" style={{ marginTop: '0.25rem', width: '100%' }} />
-                    {videoFile && <p style={{ fontSize: '0.75rem', color: '#0078D7', marginTop: '0.25rem' }}>Selected: {videoFile.name}</p>}
+                    {videoFile && <p style={{ fontSize: '0.75rem', color: '#333', marginTop: '0.25rem' }}>Selected: {videoFile.name}</p>}
                 </div>
             </div>
 
             {/* Reference Images */}
             <div style={{
                 marginBottom: '1.5rem',
-                border: refImages.length > 0 ? '2px solid #0078D7' : '2px dashed #ccc',
+                border: refImages.length > 0 ? '2px solid #333' : '2px dashed #999',
                 padding: '1rem',
                 borderRadius: '10px',
                 display: 'flex',
                 alignItems: 'center',
-                backgroundColor: '#fafafa'
+                backgroundColor: '#f9f9f9'
             }}>
-                <IoImage size={24} color="#0078D7" style={{ marginRight: '1rem' }} />
+                <IoImage size={24} color="#222" style={{ marginRight: '1rem' }} />
                 <div style={{ flexGrow: 1 }}>
-                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#222' }}>Reference Images (Target Person)</label>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#111' }}>
+                        Reference Images (Target Person)
+                    </label>
                     <input type="file" multiple onChange={(e) => setRefImages(Array.from(e.target.files))} accept="image/*" style={{ marginTop: '0.25rem', width: '100%' }} />
-                    {refImages.length > 0 && <p style={{ fontSize: '0.75rem', color: '#0078D7', marginTop: '0.25rem' }}>{refImages.length} image(s) selected.</p>}
+                    {refImages.length > 0 && <p style={{ fontSize: '0.75rem', color: '#333', marginTop: '0.25rem' }}>{refImages.length} image(s) selected.</p>}
                 </div>
             </div>
 
-            {/* Upload Button */}
+            {/* Button (kept original .btn-neon-search style) */}
             <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-                <button
-                    onClick={handleUpload}
+                <button 
+                    onClick={handleUpload} 
                     disabled={loading || !videoFile || refImages.length === 0 || !user.isAuthenticated}
-                    style={{
-                        backgroundColor: user.isAuthenticated ? '#0078D7' : '#bbb',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '0.75rem 1.5rem',
-                        fontWeight: '600',
-                        cursor: loading ? 'not-allowed' : 'pointer',
-                        transition: '0.3s'
-                    }}
+                    className="btn-neon-search"
                 >
                     <IoSearch style={{ marginRight: '0.5rem' }} />
                     {loading ? "ANALYZING..." : (user.isAuthenticated ? "START AUTOMATED SEARCH" : "LOGIN REQUIRED")}
                 </button>
             </div>
 
-            {/* Progress Bar */}
+            {/* Progress Section */}
             {(loading || statusMessage.includes('failed')) && (
                 <div style={{ width: '100%', marginTop: '1rem', textAlign: 'center' }}>
                     <p style={{
                         fontSize: '0.875rem',
-                        color: statusMessage.includes('failed') ? '#c0392b' : '#0078D7',
+                        color: statusMessage.includes('failed') ? '#c0392b' : '#222',
                         marginBottom: '0.25rem',
                         display: 'flex',
                         alignItems: 'center',
@@ -164,7 +156,7 @@ const FileUpload = () => {
                             height: '0.5rem'
                         }}>
                             <div style={{
-                                backgroundColor: '#0078D7',
+                                backgroundColor: '#222',
                                 height: '0.5rem',
                                 borderRadius: '9999px',
                                 width: `${displayProgress}%`,
@@ -175,23 +167,23 @@ const FileUpload = () => {
                 </div>
             )}
 
-            {/* Sequential Log */}
+            {/* Real-Time Log */}
             {sequentialResults.length > 0 && (
-                <Card style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#f9f9f9', border: '1px solid #ddd' }}>
+                <Card style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#fff', border: '1px solid #ddd' }}>
                     <h4 style={{
-                        color: '#222',
+                        color: '#111',
                         borderBottom: '1px solid #ddd',
                         marginBottom: '0.5rem',
                         display: 'flex',
                         alignItems: 'center'
                     }}>
-                        <IoStatsChart style={{ marginRight: '0.5rem', color: '#0078D7' }} /> Real-Time Log ({sequentialResults.length})
+                        <IoStatsChart style={{ marginRight: '0.5rem', color: '#222' }} /> Real-Time Log ({sequentialResults.length})
                     </h4>
                     <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                         {sequentialResults.slice().reverse().map((match, index) => (
                             <p key={index} style={{
                                 fontSize: '0.8rem',
-                                color: match.similarity >= 0.75 ? '#0078D7' : '#555',
+                                color: match.similarity >= 0.75 ? '#000' : '#555',
                                 padding: '0.2rem 0'
                             }}>
                                 [Frame {match.frame_number}] Match found (Sim: {match.similarity.toFixed(4)})

@@ -1,4 +1,4 @@
-// frontend/src/services/firebaseService.js (FINALIZED & CLEANED)
+// frontend/src/services/firebaseService.js (FINAL VERSION with LIVE CONFIG)
 
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
@@ -6,12 +6,13 @@ import { getFirestore, doc, setDoc, collection, query, getDocs, orderBy, getDoc 
 
 // --- CRITICAL FIX: USING YOUR ACTUAL PROJECT CONFIGURATION ---
 const firebaseConfig = {
-  apiKey: "AIzaSyDiyK_WlKaTQJ4h7WkuGiUnF850rzprp8Y",
-  authDomain: "person-search-using-ai-c5e6b.firebaseapp.com",
-  projectId: "person-search-using-ai-c5e6b",
-  storageBucket: "person-search-using-ai-c5e6b.firebasestorage.app",
-  messagingSenderId: "735068010061",
-  appId: "1:735068010061:web:4ea47448b6856c66dbce04"
+    // You MUST replace these placeholders with your project's actual keys!
+    apiKey: "AIzaSyDiyK_WlKaTQJ4h7WkuGiUnF850rzprp8Y",
+    authDomain: "person-search-using-ai-c5e6b.firebaseapp.com",
+    projectId: "person-search-using-ai-c5e6b",
+    storageBucket: "person-search-using-ai-c5e6b.firebasestorage.app",
+    messagingSenderId: "735068010061",
+    appId: "1:735068010061:web:4ea47448b6856c66dbce04"
 };
 
 // Initialize Firebase App
@@ -31,7 +32,8 @@ export const initAuthListener = (setUserCallback) => {
     onAuthStateChanged(auth, async (user) => {
         if (user) {
             userId = user.uid;
-            const isAuthenticated = !user.isAnonymous;
+            // isAuthenticated is true ONLY if the user signed up with email/password (not anonymous)
+            const isAuthenticated = !user.isAnonymous; 
             
             // Fetch profile data (name) if available
             const profile = await fetchUserProfile(user.uid); 
@@ -40,13 +42,12 @@ export const initAuthListener = (setUserCallback) => {
                 uid: user.uid, 
                 email: user.email || 'Guest User',
                 isAuthenticated: isAuthenticated,
-                // Store first name for display purposes, defaulting if profile doesn't exist
+                // Store first name for display purposes
                 name: profile ? profile.firstName : (isAuthenticated && user.email ? user.email.split('@')[0] : 'Guest') 
             }); 
             
         } else {
             // User is signed out. Set global state to unauthenticated/guest.
-            // We rely on the Login page to initiate sign-in if needed.
             userId = null;
             setUserCallback({ uid: null, email: null, name: 'Guest', isAuthenticated: false });
         }
@@ -101,7 +102,7 @@ export const fetchUserProfile = async (uid) => {
  */
 export const logSearchJob = async (jobData, videoFilename, reportFilenames) => {
     if (!userId) {
-        throw new Error("User must be authenticated to log activity.");
+        throw new Error("User must be logged in to log activity.");
     }
     
     // Path: /users/{userId}/search_jobs/{docId}
