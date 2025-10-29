@@ -1,15 +1,14 @@
-# D:\Projects\Final Year Project\Deploy\backend\app.py (FINAL CORS FIX)
-
 from flask import Flask, request, jsonify, send_from_directory, Response
-from flask_cors import CORS # Ensure this is imported
+from flask_cors import CORS 
 from werkzeug.utils import secure_filename
 import os
 import sqlite3
 import shutil 
 import json 
-import cv2 
+import cv2 # OpenCV for webcam/video processing
 import uuid 
 import time 
+from datetime import timedelta # Used in video_processor
 
 # --- Corrected Absolute Imports ---
 from backend.config import (
@@ -30,16 +29,16 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # --- CRITICAL FIX: EXPLICIT CORS CONFIGURATION ---
-# We DELETE the generic CORS(app) and REPLACE it with the explicit rule.
+# This resolves the CORS policy block by allowing access from the React development server.
 CORS(app, resources={r"/api/*": {"origins": "http://localhost:5173"}}) 
 # --------------------------------------------------
 
 # Initialize DB on startup
 init_db()
 
-# --- Cleanup Function (Retained) ---
+# --- Cleanup Function ---
 def clear_previous_session_data():
-    """Deletes all entries from DB and clears static file directories."""
+    """Deletes all entries from DB and and clears static file directories."""
     print("🧹 Starting session cleanup...")
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -62,7 +61,7 @@ def clear_previous_session_data():
     print("🧹 Cleanup complete.")
 
 
-# --- LIVE FEED: MJPEG Generator (Step 2 Logic) ---
+# --- LIVE FEED: MJPEG Generator (Step 2 Logic - Used for real-time video stream) ---
 def generate_mjpeg_stream(processor, reference_embedding):
     """Draws bounding boxes and streams processed frames as MJPEG."""
     
@@ -86,6 +85,7 @@ def generate_mjpeg_stream(processor, reference_embedding):
             target_embedding = processor.embedder.get_embedding(face_data['image'])
             similarity, is_match = processor.matcher.match(target_embedding, reference_embedding)
 
+            # Determine box color and text based on match status
             (x1, y1, x2, y2) = face_data['box']
             
             if is_match:
@@ -95,12 +95,15 @@ def generate_mjpeg_stream(processor, reference_embedding):
                 color = (255, 0, 0) # Blue BGR for No Match
                 text = f"SIM: {similarity:.2f}"
 
+            # Draw the box and text on the frame
             cv2.rectangle(frame_copy, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame_copy, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
         
+        # Encode the frame into JPEG format
         ret, buffer = cv2.imencode('.jpg', frame_copy)
         if not ret: continue
 
+        # Yield the JPEG frame as part of the multipart stream
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
 
@@ -119,11 +122,13 @@ def upload_live_reference():
     ref_files = request.files.getlist('reference_images')
     
     processor = VideoProcessor() 
+    # Note: embedder.get_reference_embedding handles FileStorage objects directly now.
     reference_embedding = processor.embedder.get_reference_embedding(ref_files)
 
     if reference_embedding is None:
         return jsonify({"message": "Could not generate reference embedding."}), 500
 
+    # Store embedding and generate session ID
     session_id = str(uuid.uuid4())
     LIVE_EMBEDDING_CACHE[session_id] = reference_embedding
     
@@ -150,7 +155,7 @@ def stream_live_feed(session_id):
     )
 
 
-# --- BATCH PROCESSING ROUTES ---
+# --- BATCH PROCESSING ROUTES (FIXED to use generator) ---
 @app.route('/api/upload', methods=['POST'])
 def upload_files():
     """Handles batch video upload and processing."""
@@ -177,11 +182,16 @@ def upload_files():
 
     # 3. Start Deep Learning Processing
     processor = VideoProcessor()
-    result = processor.process_video(video_path, ref_paths) 
+    
+    # CRITICAL FIX: Call generator function and collect results
+    generator_results = list(processor.process_video_generator(video_path, ref_paths))
+    final_result = generator_results[-1] 
     
     # 4. Generate Reports on completion
-    if result['status'] == 'completed':
+    if final_result['status'] == 'completed':
         generator = ReportGenerator()
+        
+        # Ensure we use the filename for the report generation
         csv_report_path = generator.generate_csv(video_filename)
         pdf_report_path = generator.generate_pdf(video_filename)
         
@@ -192,10 +202,12 @@ def upload_files():
                 "csv": os.path.basename(csv_report_path) if csv_report_path else None,
                 "pdf": os.path.basename(pdf_report_path) if pdf_report_path else None
             },
-            "details": result
+            # Pass the full generator list for sequential frontend rendering
+            "details": generator_results 
         }), 200
     else:
-        return jsonify({"message": "Processing failed.", "details": result}), 500
+        # If the generator returned an error status (the first item in the list)
+        return jsonify({"message": "Processing failed.", "details": final_result}), 500
 
 @app.route('/api/results/<video_name>', methods=['GET'])
 def get_results(video_name):

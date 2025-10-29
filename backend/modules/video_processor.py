@@ -6,33 +6,43 @@ import sqlite3
 from datetime import timedelta
 import uuid
 import numpy as np
+import traceback
 
-# Imports remain relative, which is correct for modules within a package
+# Relative imports (correct for your project structure)
 from ..config import DB_PATH, FRAME_SKIP, MATCHES_FOLDER, SIMILARITY_THRESHOLD
 from .face_detector import FaceDetector
 from .face_embedder import FaceEmbedder
 from .matcher import Matcher
 
+
 class VideoProcessor:
-    """Orchestrates the DL pipeline: Detect -> Embed -> Match -> Log."""
+    """Orchestrates the DL pipeline: Detect → Embed → Match → Log."""
+    
     def __init__(self):
+        # Attach FRAME_SKIP to instance for consistent use
+        self.FRAME_SKIP = FRAME_SKIP
         self.detector = FaceDetector()
         self.embedder = FaceEmbedder()
         self.matcher = Matcher(threshold=SIMILARITY_THRESHOLD)
 
     def _log_detection(self, video_filename, frame_num, timestamp, similarity, match_image_path):
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO detections (video_filename, frame_number, timestamp, similarity, match_image_path)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (video_filename, frame_num, timestamp, similarity, image_path))
-        conn.commit()
-        conn.close()
+        """Insert detection info into SQLite database safely."""
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO detections (video_filename, frame_number, timestamp, similarity, match_image_path)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (video_filename, frame_num, timestamp, similarity, match_image_path))
+            conn.commit()
+        except Exception as db_err:
+            print(f"⚠️ Database log failed for frame {frame_num}: {db_err}")
+            traceback.print_exc()
+        finally:
+            conn.close()
 
-    # --- MODIFIED: Renamed and converted to a generator function ---
     def process_video_generator(self, video_path: str, reference_image_paths: list):
-        """Main processing loop, yielding progress and match data."""
+        """Main processing loop — yields status, progress, and matches."""
         video_filename = os.path.basename(video_path)
         cap = cv2.VideoCapture(video_path)
         
@@ -45,14 +55,12 @@ class VideoProcessor:
             yield {"status": "error", "message": "Could not generate reference embedding."}
             return
 
-        # Get total frames for progress calculation
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         frame_count = 0
         matches_found = 0
         
-        # 1. INITIAL YIELD: Start signal and total frame count
+        # Initial yield to frontend
         yield {"status": "start", "total_frames": total_frames, "filename": video_filename}
-        
         print(f"🔄 Starting video processing: {video_filename}. Total Frames: {total_frames}")
 
         while cap.isOpened():
@@ -60,16 +68,16 @@ class VideoProcessor:
             if not ret:
                 break
 
-            # 2. PROGRESS YIELD: Update frontend every N frames
+            # Yield progress every 50 frames
             if frame_count % 50 == 0 or frame_count == total_frames - 1:
                 yield {"status": "progress", "frame_number": frame_count}
 
+            # Process every Nth frame
             if frame_count % self.FRAME_SKIP == 0:
                 current_time_ms = cap.get(cv2.CAP_PROP_POS_MSEC)
                 time_delta = timedelta(milliseconds=current_time_ms)
-                timestamp_str = str(time_delta).split('.')[0] 
+                timestamp_str = str(time_delta).split('.')[0]
 
-                # --- DEDUPLICATION CORE ---
                 best_match_in_frame = {'similarity': 0.0, 'image': None}
                 detected_faces = self.detector.detect_faces(frame)
 
@@ -80,32 +88,32 @@ class VideoProcessor:
                     if is_match and similarity > best_match_in_frame['similarity']:
                         best_match_in_frame['similarity'] = similarity
                         best_match_in_frame['image'] = face_data['image']
-                
-                # --- LOGGING & REAL-TIME MATCH YIELD ---
+
+                # Log and yield match if threshold met
                 if best_match_in_frame['similarity'] >= self.matcher.threshold:
                     matches_found += 1
                     similarity = best_match_in_frame['similarity']
-                    
-                    # Generate unique filename (for disk saving and logging)
+
+                    # Unique filename for saving
                     unique_id = uuid.uuid4().hex[:8]
-                    match_filename = f"{video_filename.split('.')[0]}_F{frame_count}_{unique_id}.jpg" 
+                    match_filename = f"{video_filename.split('.')[0]}_F{frame_count}_{unique_id}.jpg"
                     match_path = os.path.join(MATCHES_FOLDER, match_filename)
-                    
-                    # 1. Save the image to disk (needed for final report)
+
                     try:
+                        # Save match image
                         cv2.imwrite(match_path, best_match_in_frame['image'])
-                        
-                        # 2. Log to the database
+
+                        # Log match to database
                         self._log_detection(
-                            video_filename, 
-                            frame_count, 
-                            timestamp_str, 
-                            float(similarity), 
+                            video_filename,
+                            frame_count,
+                            timestamp_str,
+                            float(similarity),
                             match_filename
                         )
-                        print(f"   🔥 Match Logged! Frame: {frame_count}, Sim: {similarity:.4f}")
-                        
-                        # 3. YIELD MATCH RESULT (FOR SEQUENTIAL FRONTEND DISPLAY)
+                        print(f"🔥 Match Logged! Frame: {frame_count}, Sim: {similarity:.4f}")
+
+                        # Yield match event
                         yield {
                             "status": "match",
                             "frame_number": frame_count,
@@ -115,10 +123,16 @@ class VideoProcessor:
 
                     except Exception as e:
                         print(f"⚠️ Warning: Failed to save image for frame {frame_count}. Error: {e}")
+                        traceback.print_exc()
 
             frame_count += 1
 
         cap.release()
-        
-        # 4. FINAL YIELD: Completion status
-        yield {"status": "completed", "frames_processed": frame_count, "matches_found": matches_found}
+
+        # Final yield
+        yield {
+            "status": "completed",
+            "frames_processed": frame_count,
+            "matches_found": matches_found
+        }
+        print(f"✅ Processing complete. Frames: {frame_count}, Matches: {matches_found}")
