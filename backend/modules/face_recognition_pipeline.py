@@ -1,15 +1,16 @@
 import cv2
 import numpy as np
 import torch
-# from torchvision import transforms  # No longer needed
+# --- REMOVED ---
+# from torchvision import transforms  (No longer needed)
+# ---------------
 from facenet_pytorch import MTCNN, InceptionResnetV1
 from werkzeug.datastructures import FileStorage
-# from sklearn.metrics.pairwise import cosine_similarity # Replaced with numpy
 
 class FaceRecognitionPipeline:
     """
-    A unified class handling Face Detection (MTCNN), Face Alignment, and 
-    Embedding Generation (FaceNet) for the person search pipeline.
+    Handles Face Detection (MTCNN), Face Alignment, and Embedding Generation (FaceNet)
+    in a single, optimized class.
     """
 
     def __init__(self):
@@ -42,7 +43,7 @@ class FaceRecognitionPipeline:
 
     def process_frame(self, frame: np.ndarray):
         """
-        Detects faces in a frame, aligns them, and generates embeddings.
+        Detects faces in a video frame, aligns them, and generates embeddings.
         """
         if frame is None or frame.size == 0:
             return []
@@ -123,19 +124,3 @@ class FaceRecognitionPipeline:
             
         return mean_embedding / norm
         # -----------------------------------------------------------
-
-    def check_match(self, query_embedding: np.ndarray, target_embedding: np.ndarray, threshold: float = 0.65) -> tuple[bool, float]:
-        """
-        Checks if two L2-normalized embeddings match using dot product (cosine similarity).
-        """
-        if query_embedding is None or target_embedding is None:
-            return False, 0.0
-            
-        # For L2-normalized vectors, dot product is cosine similarity
-        similarity = np.dot(query_embedding.flatten(), target_embedding.flatten())
-        
-        # Clip for safety against floating point errors
-        similarity = np.clip(similarity, -1.0, 1.0)
-        
-        is_match = similarity >= threshold
-        return is_match, similarity

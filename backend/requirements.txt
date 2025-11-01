@@ -1,12 +1,18 @@
+# --- Core Framework & Server ---
 Flask
+flask-cors
+
+# --- Deep Learning (PyTorch) ---
 torch
 torchvision
-numpy
+# Provides both MTCNN (detector/aligner) and FaceNet (embedder)
+facenet-pytorch 
+
+# --- Image & Video Processing ---
 opencv-python-headless
-scikit-learn
 Pillow
+
+# --- Data Handling & Reporting ---
+numpy
 pandas
 fpdf2
-ultralytics
-flask-cors
-facenet-pytorch

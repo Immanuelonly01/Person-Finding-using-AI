@@ -1,5 +1,3 @@
-# D:\Projects\Final Year Project\Deploy\run_server.py
-
 import os
 import sys
 
@@ -14,11 +12,15 @@ try:
     from backend.app import app
 except ImportError as e:
     print(f"FATAL ERROR: Could not load Flask application from backend.app: {e}")
-    print("Please ensure your files are in the correct backend/ directory structure and all imports in backend/app.py are absolute.")
+    print("Please ensure your files are in the correct backend/ directory structure and all imports in backend/app.py are valid.")
+    sys.exit(1)
+except Exception as e:
+    print(f"An unexpected error occurred during import: {e}")
     sys.exit(1)
 
 # 3. Run the Flask application
 if __name__ == '__main__':
     print("✅ Launching server using run_server.py...")
     # app.run() will now correctly use the configuration loaded from the backend package
+    # Note: Setting debug=False is recommended for production
     app.run(debug=True, host='0.0.0.0', port=5000)
