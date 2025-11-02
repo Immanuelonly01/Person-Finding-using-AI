@@ -1,149 +1,149 @@
 import cv2
-import os
-import sqlite3
-from datetime import timedelta
-import uuid
 import numpy as np
-import traceback
+import torch
+# --- REMOVED ---
+# from torchvision import transforms  (No longer needed)
+# ---------------
+from facenet_pytorch import MTCNN, InceptionResnetV1
+from werkzeug.datastructures import FileStorage
 
-# --- UPDATED IMPORTS ---
-from ..config import (
-    DB_PATH, FRAME_SKIP, MATCHES_FOLDER, 
-    SIMILARITY_THRESHOLD, MATCH_COOLDOWN_FRAMES # <-- Import new variable
-)
-from .face_recognition_pipeline import FaceRecognitionPipeline 
-from .matcher import Matcher
+class FaceRecognitionPipeline:
+    """
+    Handles Face Detection (MTCNN), Face Alignment, and Embedding Generation (FaceNet)
+    in a single, optimized class.
+    """
 
-
-class VideoProcessor:
-    """Orchestrates the DL pipeline: Detect+Align+Embed → Match → Log."""
-    
     def __init__(self):
-        self.FRAME_SKIP = FRAME_SKIP
-        self.pipeline = FaceRecognitionPipeline() 
-        self.matcher = Matcher(threshold=SIMILARITY_THRESHOLD) 
-        # --- NEW ---
-        self.MATCH_COOLDOWN = MATCH_COOLDOWN_FRAMES
-        # -----------
+        # 1. Device Setup (Uses your GTX 1650)
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        print(f"Loading Models on device: {self.device}...")
 
-    def _log_detection(self, video_filename, frame_num, timestamp, similarity, match_image_path):
-        # ... (This function is unchanged) ...
-        try:
-            conn = sqlite3.connect(DB_PATH)
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO detections (video_filename, frame_number, timestamp, similarity, match_image_path)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (video_filename, frame_num, timestamp, similarity, match_image_path))
-            conn.commit()
-        except Exception as db_err:
-            print(f"⚠️ Database log failed for frame {frame_num}: {db_err}")
-            traceback.print_exc()
-        finally:
-            if conn:
-                conn.close()
-
-    def process_video_generator(self, video_path: str, reference_image_paths: list):
-        """Main processing loop — yields status, progress, and matches."""
-        video_filename = os.path.basename(video_path)
-        cap = cv2.VideoCapture(video_path)
+        # 2. MTCNN Detector & Aligner Setup
+        self.mtcnn = MTCNN(
+            image_size=160, 
+            margin=0, 
+            min_face_size=20, # Minimum face size to detect
+            thresholds=[0.6, 0.7, 0.7], 
+            factor=0.709, 
+            post_process=False, # Keeps tensors in [0, 255] range
+            keep_all=True, # Detect all faces
+            device=self.device
+        )
         
-        if not cap.isOpened():
-            yield {"status": "error", "message": "Could not open video file."}
-            return
+        # 3. FaceNet Embedder Setup
+        self.embedder = InceptionResnetV1(pretrained='vggface2').eval().to(self.device)
+            
+        # 4. --- REMOVED TRANSFORM ---
+        # The InceptionResnetV1 model handles its own normalization
+        # when fed [0, 255] tensors from MTCNN (with post_process=False).
+        # self.transform = ... (Removed)
+        # ---------------------------
 
-        # reference_embedding is now the average of the largest faces
-        reference_embedding = self.pipeline.get_reference_embedding(reference_image_paths)
-        if reference_embedding is None:
-            yield {"status": "error", "message": "Could not generate reference embedding from provided images."}
-            return
+        print("✅ Face Recognition Pipeline (MTCNN + FaceNet) loaded successfully.")
 
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        frame_count = 0
-        matches_found = 0
+    def process_frame(self, frame: np.ndarray):
+        """
+        Detects faces in a video frame, aligns them, and generates embeddings.
+        """
+        if frame is None or frame.size == 0:
+            return []
+            
+        # Convert BGR (OpenCV) to RGB (PyTorch/PIL)
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
-        # --- NEW: Add state to track the last match ---
-        # Initialize to allow a match on frame 0
-        last_match_frame = -self.MATCH_COOLDOWN - 1 
-        # ----------------------------------------------
+        # --- UPDATED DETECTION/ALIGNMENT LOGIC ---
+        # 1. Detect faces and get bounding boxes
+        boxes, _ = self.mtcnn.detect(frame_rgb)
         
-        yield {"status": "start", "total_frames": total_frames, "filename": video_filename}
-        print(f"🔄 Starting video processing: {video_filename}. Total Frames: {total_frames}")
+        # 2. Get aligned face tensors ([0, 255] range)
+        face_tensors = self.mtcnn(frame_rgb)
+        # ----------------------------------------
+        
+        faces_data = []
+        
+        if face_tensors is not None and boxes is not None:
+            # Move tensors to the correct device
+            face_tensors = face_tensors.to(self.device)
+            
+            with torch.no_grad():
+                # Generate embeddings. The embedder handles normalization.
+                embeddings = self.embedder(face_tensors).cpu().numpy()
+            
+            # Ensure we have the same number of boxes and embeddings
+            if len(boxes) != len(embeddings):
+                return [] 
+            
+            for i, box in enumerate(boxes):
+                # --- UPDATED IMAGE CONVERSION ---
+                # Tensors are [0, 255], so we just convert type, not denormalize from [-1, 1]
+                aligned_np_rgb = face_tensors[i].permute(1, 2, 0).cpu().numpy().astype(np.uint8)
+                aligned_bgr = cv2.cvtColor(aligned_np_rgb, cv2.COLOR_RGB2BGR)
+                # --------------------------------
 
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            if frame_count % 50 == 0 or frame_count == total_frames - 1:
-                yield {"status": "progress", "frame_number": frame_count}
-
-            if frame_count % self.FRAME_SKIP == 0:
-                current_time_ms = cap.get(cv2.CAP_PROP_POS_MSEC)
-                time_delta = timedelta(milliseconds=current_time_ms)
-                timestamp_str = str(time_delta).split('.')[0]
-
-                all_face_data_in_frame = self.pipeline.process_frame(frame)
-
-                # --- NEW: Track if we found a match *in this frame* ---
-                found_match_in_this_frame = False
-                # -----------------------------------------------------
-
-                for face_data in all_face_data_in_frame:
-                    target_embedding = face_data['embedding']
+                # L2 Normalize the embedding (standard practice)
+                embedding = embeddings[i]
+                embedding_norm = embedding / np.linalg.norm(embedding) 
+                
+                # --- ADDED 'box_area' TO THE DICTIONARY ---
+                x1, y1, x2, y2 = box.astype(int)
+                box_area = (x2 - x1) * (y2 - y1)
+                
+                faces_data.append({
+                    'box': (x1, y1, x2, y2), 
+                    'embedding': embedding_norm,
+                    'cropped_image': aligned_bgr,
+                    'box_area': box_area # We will use this to find the largest face
+                })
                     
-                    similarity, is_match = self.matcher.match(target_embedding, reference_embedding)
+        return faces_data
 
-                    # --- UPDATED MATCH LOGIC ---
-                    # Check if:
-                    # 1. It IS a match
-                    # 2. We are NOT in the cooldown period
-                    if is_match and (frame_count > last_match_frame + self.MATCH_COOLDOWN):
-                        
-                        found_match_in_this_frame = True
-                        matches_found += 1
-                        
-                        unique_id = uuid.uuid4().hex[:8]
-                        match_filename = f"{video_filename.split('.')[0]}_F{frame_count}_{unique_id}.jpg"
-                        match_path = os.path.join(MATCHES_FOLDER, match_filename)
-
-                        try:
-                            cv2.imwrite(match_path, face_data['cropped_image'])
-                            self._log_detection(
-                                video_filename,
-                                frame_count,
-                                timestamp_str,
-                                float(similarity),
-                                match_filename
-                            )
-                            print(f"🔥 Match Logged! Frame: {frame_count}, Sim: {similarity:.4f}")
-
-                            yield {
-                                "status": "match",
-                                "frame_number": frame_count,
-                                "similarity": float(similarity),
-                                "timestamp": timestamp_str
-                            }
-                        except Exception as e:
-                            print(f"⚠️ Warning: Failed to save image for frame {frame_count}. Error: {e}")
-                            traceback.print_exc()
-                        
-                        # Break from the inner loop to only log ONE match per frame
-                        # and update the cooldown timer
-                        break 
+    def get_reference_embedding(self, ref_sources: list):
+        """
+        Calculates a single averaged embedding from multiple reference sources (images).
+        
+        --- CRITICAL UPDATE ---
+        This function now finds ALL faces in the reference images and ONLY
+        uses the embedding from the LARGEST face in each image.
+        This prevents background faces from "poisoning" the reference.
+        """
+        embeddings = []
+        
+        for source in ref_sources:
+            img = None
+            if isinstance(source, FileStorage):
+                image_bytes = source.read()
+                nparr = np.frombuffer(image_bytes, np.uint8)
+                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            elif isinstance(source, str):
+                img = cv2.imread(source)
+            
+            if img is not None and img.size > 0:
+                # Process the reference image to find all faces
+                all_faces_in_image = self.process_frame(img)
                 
-                # --- UPDATE THE COOLDOWN TIMER ---
-                if found_match_in_this_frame:
-                    last_match_frame = frame_count
-                # ---------------------------------
+                if not all_faces_in_image:
+                    print(f"Warning: No faces found in reference image: {source.filename if isinstance(source, FileStorage) else source}")
+                    continue # Skip this image if no faces are found
+
+                # --- START OF FIX ---
+                # Find the face with the largest bounding box area
+                largest_face = max(all_faces_in_image, key=lambda face: face['box_area'])
                 
-            frame_count += 1
-
-        cap.release()
-
-        yield {
-            "status": "completed",
-            "frames_processed": frame_count,
-            "matches_found": matches_found
-        }
-        print(f"✅ Processing complete. Frames: {frame_count}, Matches: {matches_found}")
+                # Add the embedding of ONLY the largest face
+                embeddings.append(largest_face['embedding'])
+                # --- END OF FIX ---
+        
+        if not embeddings:
+            print("❌ ERROR: No usable faces found in any reference images.")
+            return None
+            
+        # Average the embeddings from the largest faces
+        mean_embedding = np.mean(embeddings, axis=0)
+        
+        # --- CRITICAL UPDATE: L2-Normalize the final mean vector ---
+        norm = np.linalg.norm(mean_embedding)
+        if norm == 0:
+            return None
+            
+        return mean_embedding / norm
+        # -----------------------------------------------------------
