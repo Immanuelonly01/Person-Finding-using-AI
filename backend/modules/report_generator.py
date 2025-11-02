@@ -104,6 +104,7 @@ class ReportGenerator:
             # -------------------------------------------------------------------
 
             # --- Image Cell (with error handling) ---
+            # This is where the image preview is added
             image_path = os.path.join(MATCHES_FOLDER, row['match_image_path'])
             img_x = pdf.get_x() + 2 # Padding
             img_y = pdf.get_y() + 2 # Padding
@@ -120,7 +121,7 @@ class ReportGenerator:
             except Exception as e:
                 # If image is corrupt or FPDF fails
                 print(f"Warning: Could not embed image {image_path}. {e}")
-                pdf.set_y(start_y + row_height/2 - 3)
+                pdf.set_y(start_Y + row_height/2 - 3)
                 pdf.set_x(img_x)
                 pdf.cell(col_width_img, 6, "[Image load error]", 0, 0, 'L')
 
@@ -133,7 +134,10 @@ class ReportGenerator:
         report_path = os.path.join(REPORTS_FOLDER, report_filename)
         
         try:
-            pdf.output(report_path, "F")
+            # --- THIS IS THE FIX ---
+            # Removed the "F" argument which was causing the crash
+            pdf.output(report_path)
+            # -----------------------
             return report_path
         except Exception as e:
             print(f"Error saving PDF: {e}")

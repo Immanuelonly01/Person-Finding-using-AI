@@ -10,21 +10,20 @@ import uuid
 import time 
 from datetime import timedelta 
 
-# --- CORRECTED RELATIVE IMPORTS ---
-# (Assuming app.py is inside the 'backend' folder)
-from .config import (
+# --- CRITICAL FIX: Use Absolute Imports from the 'backend' root ---
+from backend.config import (
     UPLOAD_FOLDER, REPORTS_FOLDER, MATCHES_FOLDER, DB_PATH, initialize_filesystem
 )
-from .modules.video_processor import VideoProcessor
-from .modules.report_generator import ReportGenerator
-from .database.init_db import init_db
+from backend.modules.video_processor import VideoProcessor
+from backend.modules.report_generator import ReportGenerator
+from backend.database.init_db import init_db
 # ----------------------------------
 
 # --- GLOBAL EMBEDDING STORAGE ---
 LIVE_EMBEDDING_CACHE = {} 
 
-# Call the file system initializer
-initialize_filesystem()
+# File system is initialized by config.py when it's first imported
+# initialize_filesystem() # No need to call again
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -61,7 +60,7 @@ def clear_previous_session_data():
 
 
 # --- LIVE FEED: MJPEG Generator (UPDATED) ---
-def generate_mjpeg_stream(processor, reference_embedding):
+def generate_mjpeg_stream(processor, reference_embedding_list):
     """Draws bounding boxes and streams processed frames as MJPEG."""
     
     cap = cv2.VideoCapture(0) 
@@ -78,15 +77,13 @@ def generate_mjpeg_stream(processor, reference_embedding):
         
         frame_copy = frame.copy()
         
-        # --- CRITICAL FIX ---
-        # Use the unified pipeline from the processor
-        # This one call handles detection, alignment, and embedding
         all_face_data_in_frame = processor.pipeline.process_frame(frame_copy)
         
         for face_data in all_face_data_in_frame:
-            # Get the embedding from the pipeline's output
             target_embedding = face_data['embedding']
-            similarity, is_match = processor.matcher.match(target_embedding, reference_embedding)
+            
+            # Matcher now checks against a LIST of reference embeddings
+            similarity, is_match = processor.matcher.match(target_embedding, reference_embedding_list)
 
             (x1, y1, x2, y2) = face_data['box']
             
@@ -97,16 +94,12 @@ def generate_mjpeg_stream(processor, reference_embedding):
                 color = (0, 0, 255) # Red BGR for No Match
                 text = f"SIM: {similarity:.2f}"
 
-            # Draw the box and text
             cv2.rectangle(frame_copy, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame_copy, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
-        # --- END OF FIX ---
         
-        # Encode the frame into JPEG format
         ret, buffer = cv2.imencode('.jpg', frame_copy)
         if not ret: continue
 
-        # Yield the JPEG frame
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
 
@@ -117,7 +110,7 @@ def generate_mjpeg_stream(processor, reference_embedding):
 # --- LIVE FEED: Step 1 (POST) - Upload Reference (UPDATED) ---
 @app.route('/api/live/upload_ref', methods=['POST']) 
 def upload_live_reference():
-    """Calculates embedding, stores it in cache, and returns a session ID."""
+    """Calculates embedding list, stores it in cache, and returns a session ID."""
     
     if 'reference_images' not in request.files:
         return jsonify({"message": "Missing reference images."}), 400
@@ -126,43 +119,39 @@ def upload_live_reference():
     
     processor = VideoProcessor() 
     
-    # --- CRITICAL FIX ---
-    # Access the pipeline *through* the processor instance
-    reference_embedding = processor.pipeline.get_reference_embedding(ref_files)
-    # --- END OF FIX ---
+    # get_reference_embedding now returns a LIST of valid embeddings
+    reference_embedding_list = processor.pipeline.get_reference_embedding(ref_files)
 
-    if reference_embedding is None:
+    if reference_embedding_list is None:
         return jsonify({"message": "Could not generate reference embedding."}), 500
 
-    # Store embedding and generate session ID
     session_id = str(uuid.uuid4())
-    LIVE_EMBEDDING_CACHE[session_id] = reference_embedding
+    LIVE_EMBEDDING_CACHE[session_id] = reference_embedding_list
     
     print(f"🟢 LIVE Session Ready: {session_id}. Cache Size: {len(LIVE_EMBEDDING_CACHE)}")
     
     return jsonify({"message": "Reference uploaded successfully.", "session_id": session_id}), 200
 
 
-# --- LIVE FEED: Step 2 (GET) - Start Streaming (No changes) ---
+# --- LIVE FEED: Step 2 (GET) - Start Streaming (UPDATED) ---
 @app.route('/api/live/stream/<session_id>') 
 def stream_live_feed(session_id):
-    """Starts MJPEG stream by retrieving embedding from cache."""
+    """Starts MJPEG stream by retrieving embedding list from cache."""
     if session_id not in LIVE_EMBEDDING_CACHE:
         return jsonify({"message": "Session not found or expired."}), 404
         
-    embedding = LIVE_EMBEDDING_CACHE.get(session_id)
+    # This is now a LIST
+    embedding_list = LIVE_EMBEDDING_CACHE.get(session_id)
     
-    # Create a new processor for this stream
     processor = VideoProcessor() 
 
-    # START MJPEG STREAM
     return Response(
-        generate_mjpeg_stream(processor, embedding), 
+        generate_mjpeg_stream(processor, embedding_list), 
         mimetype='multipart/x-mixed-replace; boundary=frame'
     )
 
 
-# --- BATCH PROCESSING (No changes, this was already correct) ---
+# --- BATCH PROCESSING ---
 @app.route('/api/upload', methods=['POST'])
 def upload_files():
     """Handles batch video upload and processing."""
@@ -191,10 +180,8 @@ def upload_files():
     processor = VideoProcessor()
     
     # Call generator function and collect results
-    # This works because video_processor.py was already updated
     generator_results = list(processor.process_video_generator(video_path, ref_paths))
     
-    # Check the final message from the generator
     if not generator_results:
         return jsonify({"message": "Processing failed to start."}), 500
         
@@ -214,14 +201,13 @@ def upload_files():
                 "csv": os.path.basename(csv_report_path) if csv_report_path else None,
                 "pdf": os.path.basename(pdf_report_path) if pdf_report_path else None
             },
-            # Pass the full generator list for sequential frontend rendering
             "details": generator_results 
         }), 200
     else:
         # If the generator returned an error status
         return jsonify({"message": "Processing failed.", "details": final_result}), 500
 
-# --- OTHER ROUTES (No changes) ---
+# --- OTHER ROUTES ---
 
 @app.route('/api/results/<video_name>', methods=['GET'])
 def get_results(video_name):
@@ -257,6 +243,7 @@ def serve_static(folder, filename):
     return send_from_directory(directory_to_serve, filename, as_attachment=(folder == 'reports'))
 
 if __name__ == '__main__':
-    # Run the app from *inside* the 'backend' folder
-    print("🚀 Starting Flask API on http://127.0.0.1:5000")
+    # This block is for running directly (e.g., python backend/app.py)
+    # It won't be called when using 'run_server.py'
+    print("🚀 Starting Flask API directly on http://127.0.0.1:5000")
     app.run(debug=True, host='0.0.0.0', port=5000)

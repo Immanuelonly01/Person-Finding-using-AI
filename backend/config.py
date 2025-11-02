@@ -37,4 +37,9 @@ SIMILARITY_THRESHOLD = 0.70
 
 # (UPDATED) Skip 10 frames to balance processing speed and detection recall.
 # 5 was processing too many frames for this heavy pipeline.
-FRAME_SKIP = 10
+FRAME_SKIP = 10 
+
+# --- ADD THIS LINE ---
+# Cooldown period (in frames) to prevent logging the same person 
+# 100 times in a row. (e.g., 30 frames @ 30fps = 1 second)
+MATCH_COOLDOWN_FRAMES = 30
