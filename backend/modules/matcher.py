@@ -1,44 +1,79 @@
 import numpy as np
-# Removed: from sklearn.metrics.pairwise import cosine_similarity
+from typing import Union, List
 
 class Matcher:
-    """Calculates cosine similarity between a target and reference embedding using NumPy."""
+    """
+    Calculates cosine similarity between a target and reference embedding(s) using NumPy.
+    Supports both single embeddings and lists of embeddings (returns best match).
+    Optimized for ArcFace and FaceNet embeddings (L2-normalized).
+    """
     
-    # Recommended default threshold for aligned FaceNet embeddings
-    DEFAULT_THRESHOLD = 0.65 
+    # Default threshold for ArcFace embeddings (0.75+ for high accuracy)
+    DEFAULT_THRESHOLD = 0.75 
 
     def __init__(self, threshold: float = DEFAULT_THRESHOLD):
         """
         Initializes the Matcher with a cosine similarity threshold.
-        The default 0.65 is recommended for high-accuracy FaceNet (InceptionResnetV1) results.
+        
+        Args:
+            threshold: Similarity threshold (0.0 to 1.0). 
+                       Default 0.75 is recommended for ArcFace embeddings.
         """
         self.threshold = threshold
 
-    def match(self, target_embedding: np.ndarray, reference_embedding: np.ndarray):
+    def match(self, target_embedding: np.ndarray, reference_embedding: Union[np.ndarray, List[np.ndarray]]):
         """
-        Compares two L2-normalized FaceNet embeddings.
-        Returns: (similarity_score: float, is_match: bool)
-        """
-        if target_embedding is None or reference_embedding is None or target_embedding.size == 0 or reference_embedding.size == 0:
-            return 0.0, False
+        Compares target embedding against reference embedding(s).
+        
+        Args:
+            target_embedding: L2-normalized embedding vector (1D numpy array)
+            reference_embedding: Single embedding vector OR list of embedding vectors
             
-        # Ensure embeddings are flat (1D vectors)
+        Returns:
+            Tuple of (similarity_score: float, is_match: bool)
+            If multiple references provided, returns the highest similarity score.
+        """
+        if target_embedding is None or target_embedding.size == 0:
+            return 0.0, False
+        
+        # Ensure target is flat (1D vector)
         target_emb = target_embedding.flatten()
-        ref_emb = reference_embedding.flatten()
         
-        # Calculate cosine similarity using the dot product formula:
-        # Cosine Similarity = (A . B) / (||A|| * ||B||)
-        # Since FaceNet embeddings are L2-normalized (||A|| = 1 and ||B|| = 1), 
-        # the denominator is 1, simplifying the calculation to just the dot product.
-        similarity = np.dot(target_emb, ref_emb)
-        
-        # Clip the similarity score to stay within the theoretical range [-1.0, 1.0] 
-        # due to potential floating-point errors, though it's usually unnecessary for L2-normed vectors.
-        similarity = np.clip(similarity, -1.0, 1.0)
-        
-        is_match = similarity >= self.threshold
-        
-        return similarity, is_match
+        # Handle both single embedding and list of embeddings
+        if isinstance(reference_embedding, list):
+            # Multiple reference embeddings - find best match
+            best_similarity = -1.0
+            for ref_emb in reference_embedding:
+                if ref_emb is None or ref_emb.size == 0:
+                    continue
+                ref_flat = ref_emb.flatten()
+                similarity = np.dot(target_emb, ref_flat)
+                similarity = np.clip(similarity, -1.0, 1.0)
+                best_similarity = max(best_similarity, similarity)
+            
+            if best_similarity < 0:
+                return 0.0, False
+            
+            is_match = best_similarity >= self.threshold
+            return best_similarity, is_match
+        else:
+            # Single reference embedding
+            if reference_embedding is None or reference_embedding.size == 0:
+                return 0.0, False
+            
+            ref_emb = reference_embedding.flatten()
+            
+            # Calculate cosine similarity using dot product
+            # Since embeddings are L2-normalized, ||A|| = ||B|| = 1, so:
+            # Cosine Similarity = A . B
+            similarity = np.dot(target_emb, ref_emb)
+            
+            # Clip to theoretical range [-1.0, 1.0]
+            similarity = np.clip(similarity, -1.0, 1.0)
+            
+            is_match = similarity >= self.threshold
+            
+            return similarity, is_match
 
 # -------------------------------------------------------------
 # NOTE: Update the initialization of your Matcher in config.py or app.py

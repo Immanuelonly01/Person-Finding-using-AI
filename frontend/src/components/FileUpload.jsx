@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { IoSearch, IoImage, IoVideocamOutline, IoTime, IoStatsChart } from 'react-icons/io5';
 import Card from './Card'; 
-import { uploadAndProcess } from '../services/api';
+import { uploadAndProcessStream } from '../services/api';
 import { logSearchJob } from '../services/firebaseService';
 import { useOutletContext } from 'react-router-dom';
 
@@ -31,54 +31,78 @@ const FileUpload = ({ onProcessingComplete }) => {
         setUploadProgress(0);
         setProcessingPercent(0);
         setSequentialResults([]);
-        setStatusMessage("1/3: Uploading files to server...");
+        setStatusMessage("Uploading files and starting analysis...");
         
         const formData = new FormData();
         formData.append('video', videoFile);
         refImages.forEach(img => formData.append('reference_images', img));
 
+        let totalFrames = 0;
+        let videoFilename = videoFile.name;
+        let finalDetails = {};
+        let fullReportUrls = {};
+
         try {
-            const response = await uploadAndProcess(formData, (event) => {
-                setUploadProgress(Math.round((100 * event.loaded) / event.total));
-            });
-            
-            setStatusMessage("2/3: Analyzing video frames...");
-
-            const generatorResults = response.data.details;
-            const fullReportUrls = response.data.report_urls;
-            const videoFilename = response.data.video_name;
-
-            let totalFrames = 1;
-            let finalDetails = {};
-
-            generatorResults.forEach((item) => {
-                if (item.status === 'start') {
-                    totalFrames = item.total_frames;
-                } else if (item.status === 'progress') {
-                    setProcessingPercent(Math.round((item.frame_number / totalFrames) * 100));
-                } else if (item.status === 'match') {
-                    setSequentialResults(prev => [item, ...prev]);
-                } else if (item.status === 'completed') {
-                    finalDetails = item;
+            await uploadAndProcessStream(formData, {
+                onProgress: (data) => {
+                    if (data.type === 'start') {
+                        totalFrames = data.total_frames || 0;
+                        videoFilename = data.filename || videoFile.name;
+                        setStatusMessage("Processing video frames with ArcFace...");
+                    } else if (data.type === 'progress') {
+                        if (totalFrames > 0) {
+                            const percent = Math.round((data.frame / totalFrames) * 100);
+                            setProcessingPercent(percent);
+                            setStatusMessage(`Processing frame ${data.frame} of ${totalFrames}...`);
+                        }
+                    }
+                },
+                onMatch: (matchData) => {
+                    // Add match to sequential results
+                    setSequentialResults(prev => [{
+                        frame_number: matchData.frame_number,
+                        timestamp: matchData.timestamp,
+                        similarity: matchData.similarity,
+                        person: matchData.person
+                    }, ...prev]);
+                },
+                onComplete: async (completeData) => {
                     setProcessingPercent(100);
-                    setStatusMessage(`3/3: Analysis Complete. Found ${item.matches_found} detections.`);
+                    setStatusMessage(`✅ Analysis Complete! Found ${completeData.matches_found} match(es).`);
+                    
+                    finalDetails = {
+                        frames_processed: completeData.frames_processed,
+                        matches_found: completeData.matches_found,
+                        progress: completeData.progress
+                    };
+                    fullReportUrls = completeData.report_files || {};
+
+                    // Log to Firestore
+                    if (user.uid) {
+                        const reportFilenamesForLog = {
+                            csv_filename: fullReportUrls.csv || null, 
+                            pdf_filename: fullReportUrls.pdf || null
+                        };
+                        try {
+                            await logSearchJob(finalDetails, videoFilename, reportFilenamesForLog);
+                        } catch (logError) {
+                            console.error("Failed to log job:", logError);
+                        }
+                    }
+                    
+                    onProcessingComplete(videoFilename, fullReportUrls, finalDetails);
+                    setLoading(false);
+                },
+                onError: (error) => {
+                    console.error("Upload/Processing failed:", error);
+                    setStatusMessage(`❌ Processing failed: ${error.message}. Check backend console.`);
+                    setLoading(false);
                 }
             });
 
-            if (user.uid) {
-                const reportFilenamesForLog = {
-                    csv_filename: fullReportUrls.csv, 
-                    pdf_filename: fullReportUrls.pdf 
-                };
-                await logSearchJob(finalDetails, videoFilename, reportFilenamesForLog);
-            }
-            
-            onProcessingComplete(videoFilename, fullReportUrls, finalDetails); 
-
         } catch (error) {
             console.error("Upload/Processing failed:", error);
-            setStatusMessage(`Processing failed: ${error.message}. Check backend console.`);
-        } finally {
+            setStatusMessage(`❌ Processing failed: ${error.message}. Check backend console.`);
             setLoading(false);
         }
     };

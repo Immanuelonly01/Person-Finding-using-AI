@@ -1,18 +1,36 @@
 # --- Core Framework & Server ---
-Flask
-flask-cors
+Flask>=2.3.0
+flask-cors>=4.0.0
 
 # --- Deep Learning (PyTorch) ---
-torch
-torchvision
-# Provides both MTCNN (detector/aligner) and FaceNet (embedder)
-facenet-pytorch 
+torch>=2.0.0
+torchvision>=0.15.0
+
+# --- High-Accuracy Face Recognition (Primary) ---
+# ArcFace via InsightFace - SOTA accuracy for face recognition
+insightface>=0.7.3
+onnxruntime>=1.15.0  # CPU version
+# For GPU support, install: onnxruntime-gpu>=1.15.0 (instead of onnxruntime)
+
+# --- Face Detection (Primary) ---
+# YOLOv8s-Face for fast, accurate face detection
+ultralytics>=8.0.0
+
+# --- Fallback Face Recognition (if ArcFace unavailable) ---
+# MTCNN + FaceNet as fallback
+facenet-pytorch>=2.5.3
 
 # --- Image & Video Processing ---
-opencv-python-headless
-Pillow
+opencv-python-headless>=4.8.0
+Pillow>=10.0.0
 
 # --- Data Handling & Reporting ---
-numpy
-pandas
-fpdf2
+numpy>=1.24.0
+pandas>=2.0.0
+fpdf2>=2.7.0
+
+# --- Notifications ---
+requests>=2.31.0  # For Telegram Bot API
+
+# --- Environment Variables ---
+python-dotenv>=1.0.0  # For loading .env files

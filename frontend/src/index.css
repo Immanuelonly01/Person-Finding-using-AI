@@ -1,18 +1,29 @@
 /* =======================================
-   GLOBAL THEME & VARIABLES
+   HIGH-CONTRAST THEME - Enhanced Visibility
    ======================================= */
 :root {
-  --bg-1: #000000; /* Pure dark black */
-  --bg-2: rgba(10, 10, 10, 0.8);
-  --glass-bg: rgba(15, 15, 15, 0.65);
-  --border-color: rgba(255, 255, 255, 0.08);
+  /* Light theme with high contrast */
+  --bg-1: #ffffff;
+  --bg-2: #f9fafb;
+  --glass-bg: #ffffff;
+  --border-color: #e5e7eb;
 
-  --text: #ffffff;
-  --text-secondary: #cfcfcf;
+  /* High contrast text colors */
+  --text: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
 
-  --neon-cyan: #00fff2;
-  --neon-pink: #ff29b9;
-  --neon-purple: #b86bff;
+  /* Accent colors - high contrast */
+  --neon-cyan: #0891b2;
+  --neon-pink: #db2777;
+  --neon-purple: #7c3aed;
+  --neon-blue: #2563eb;
+  
+  /* Status colors */
+  --success: #10b981;
+  --error: #ef4444;
+  --warning: #f59e0b;
+  --info: #3b82f6;
 }
 
 /* =======================================
@@ -24,48 +35,63 @@
   box-sizing: border-box;
 }
 
-body.dark-theme {
+body {
   background: var(--bg-1);
   color: var(--text);
-  font-family: "Poppins", sans-serif;
+  font-family: "Inter", "Segoe UI", "Roboto", sans-serif;
   overflow-x: hidden;
   min-height: 100vh;
+  line-height: 1.6;
 }
 
 /* =======================================
-   TEXT ELEMENTS
+   TEXT ELEMENTS - High Contrast
    ======================================= */
-h1, h3, h4, h5, h6 {
-  color: #ffffff;
+h1, h2, h3, h4, h5, h6 {
+  color: #111827;
   font-weight: 700;
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
+  line-height: 1.2;
 }
-h2{
-    color: black;
+
+h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
 }
-p, span, li {
-  color:#000000;
+
+h2 {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+h3 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+p, span, li, label {
+  color: #374151;
   line-height: 1.7;
+  font-size: 1rem;
 }
 
 a {
-  color: var(--text);
+  color: var(--neon-blue);
   text-decoration: none;
-  transition: color 0.3s ease, text-shadow 0.3s ease;
+  transition: color 0.2s ease;
+  font-weight: 500;
 }
 
 a:hover {
   color: var(--neon-cyan);
-  text-shadow: 0 0 8px var(--neon-cyan);
+  text-decoration: underline;
 }
 
 /* =======================================
-   NAVBAR
+   NAVBAR - High Contrast
    ======================================= */
 .navbar {
-  backdrop-filter: blur(10px);
-  background: var(--glass-bg);
-  border-bottom: 1px solid var(--border-color);
+  background: #ffffff;
+  border-bottom: 2px solid var(--border-color);
   padding: 1rem 2rem;
   display: flex;
   justify-content: space-between;
@@ -73,13 +99,13 @@ a:hover {
   position: sticky;
   top: 0;
   z-index: 100;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .navbar-brand {
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--neon-cyan);
-  text-shadow: 0 0 10px var(--neon-cyan);
+  color: var(--neon-blue);
 }
 
 .nav-links {
@@ -90,16 +116,19 @@ a:hover {
 .nav-link {
   color: var(--text-secondary);
   font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  transition: all 0.2s;
 }
 
 .nav-link:hover {
-  color: var(--neon-cyan);
-  text-shadow: 0 0 8px var(--neon-cyan);
+  color: var(--neon-blue);
+  background-color: #f3f4f6;
 }
 
 .nav-link.active-link {
-  color: var(--neon-cyan);
-  text-shadow: 0 0 10px var(--neon-cyan);
+  color: var(--neon-blue);
+  background-color: #eff6ff;
   font-weight: 600;
 }
 
@@ -111,23 +140,111 @@ a:hover {
   max-width: 70rem;
   margin: 2rem auto;
   padding: 2rem;
+  background: var(--bg-2);
 }
 
 /* =======================================
-   CARD STYLES
+   CARD STYLES - High Contrast
    ======================================= */
 .glass-card {
-  background: var(--glass-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 18px;
+  background: #ffffff;
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
   padding: 2rem;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.8);
-  transition: 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
 }
 
 .glass-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 0 20px var(--neon-cyan);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+  border-color: var(--neon-blue);
+}
+
+/* =======================================
+   BUTTONS - High Contrast
+   ======================================= */
+.btn-neon {
+  padding: 0.75rem 2rem;
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--neon-blue), var(--neon-cyan));
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.btn-neon:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-neon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-neon-search {
+  padding: 0.75rem 2rem;
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 1.1rem;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--neon-pink), var(--neon-purple));
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.btn-neon-search:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.btn-neon-search:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* =======================================
+   FORM ELEMENTS - High Contrast
+   ======================================= */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="file"],
+textarea,
+select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 1rem;
+  background-color: #ffffff;
+  color: #111827;
+  transition: border-color 0.2s;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--neon-blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #111827;
+  font-weight: 600;
+  font-size: 0.95rem;
 }
 
 /* =======================================
@@ -160,44 +277,42 @@ a:hover {
 
 /* Feature Card */
 .feature-card {
-  background: rgba(15, 15, 15, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 18px;
+  background: #ffffff;
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
   padding: 1.8rem 1.5rem;
   color: var(--text);
-  backdrop-filter: blur(12px);
-  transition: all 0.35s ease;
+  transition: all 0.3s ease;
   cursor: pointer;
   height: 100%;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .feature-card:hover {
-  transform: translateY(-6px);
-  border-color: var(--neon-cyan);
-  box-shadow: 0 0 18px var(--neon-cyan);
+  transform: translateY(-4px);
+  border-color: var(--neon-blue);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
 }
 
-/* Feature Content */
 .feature-card-icon {
-  color: var(--neon-cyan);
-  text-shadow: 0 0 10px var(--neon-cyan);
+  color: var(--neon-blue);
+  margin-bottom: 1rem;
 }
 
 .feature-card h3 {
-  color: #ffffff;
+  color: #111827;
   font-size: 1.25rem;
   margin-bottom: 0.5rem;
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
 }
 
 .feature-card-description {
-  color: #cfcfcf;
+  color: var(--text-secondary);
   font-size: 0.95rem;
   margin-bottom: 1rem;
 }
 
 .feature-card-cta {
-  color: var(--neon-cyan);
+  color: var(--neon-blue);
   font-weight: 600;
   letter-spacing: 0.3px;
   text-transform: uppercase;
@@ -205,7 +320,6 @@ a:hover {
   align-items: center;
   justify-content: center;
   gap: 0.3rem;
-  text-shadow: 0 0 8px var(--neon-cyan);
 }
 
 /* =======================================
@@ -213,12 +327,12 @@ a:hover {
    ======================================= */
 footer {
   text-align: center;
-  padding: 1rem;
-  border-top: 1px solid var(--border-color);
-  background: rgba(10, 10, 10, 0.85);
+  padding: 2rem;
+  border-top: 2px solid var(--border-color);
+  background: #ffffff;
   color: var(--text-secondary);
   font-size: 0.9rem;
-  backdrop-filter: blur(10px);
+  margin-top: 3rem;
 }
 
 /* =======================================
@@ -240,11 +354,55 @@ footer {
 }
 
 /* =======================================
+   UTILITY CLASSES
+   ======================================= */
+.results-grid-2col {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  justify-content: center;
+}
+
+/* Status badges */
+.status-success {
+  color: var(--success);
+  background-color: #d1fae5;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.status-error {
+  color: var(--error);
+  background-color: #fee2e2;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.status-warning {
+  color: var(--warning);
+  background-color: #fef3c7;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+/* =======================================
    RESPONSIVE DESIGN
    ======================================= */
 @media (max-width: 768px) {
   .card-flex-wrapper-1-4 {
     flex: 1 1 calc(50% - 1rem);
+  }
+  
+  h1 {
+    font-size: 2rem;
+  }
+  
+  .main-content {
+    padding: 1rem;
   }
 }
 
@@ -253,45 +411,13 @@ footer {
   .card-flex-wrapper-1-4 {
     flex: 1 1 100%;
   }
-}
-/* In D:\Projects\Final Year Project\Deploy\frontend\src\index.css */
-
-/* Add this utility button style (based on the neon aesthetic) */
-.btn-neon-search {
-    padding: 0.75rem 2rem;
-    border-radius: 6px;
-    color: var(--bg-1); /* Dark text color */
-    font-weight: bold;
-    font-size: 1.1rem;
-    cursor: pointer;
-    background: linear-gradient(90deg, var(--neon-pink), var(--neon-cyan));
-    box-shadow: 0 0 12px rgba(0, 255, 200, 0.4);
-    border: none;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.btn-neon-search:hover:not(:disabled) {
-    transform: scale(1.05);
-    box-shadow: 0 0 20px 2px var(--neon-cyan);
-    background: linear-gradient(90deg, var(--neon-pink), var(--neon-blue));
-}
-.btn-neon-search:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
-
-/* Add a rule for smaller result grid spacing (e.g., 2 columns) */
-.results-grid-2col {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); /* Min size 320px */
-    gap: 1.5rem;
-    margin-top: 1.5rem;
-    justify-content: center;
-}
-/* Ensure 1 column on mobile */
-@media (max-width: 600px) {
-    .results-grid-2col {
-        grid-template-columns: 1fr;
-    }
+  
+  .results-grid-2col {
+    grid-template-columns: 1fr;
+  }
+  
+  .navbar {
+    flex-direction: column;
+    gap: 1rem;
+  }
 }

@@ -1,6 +1,7 @@
 import pandas as pd
 import sqlite3
 from fpdf import FPDF
+# Note: If you get import error, install: pip install fpdf2
 # --- CRITICAL FIX: Use Absolute Imports ---
 from backend.config import DB_PATH, REPORTS_FOLDER, MATCHES_FOLDER
 # ----------------------------------------

@@ -1,4 +1,15 @@
 import os
+import sys
+
+# --- HELPER FUNCTION FOR SAFE PRINTING (Windows console compatibility) ---
+def safe_print(message):
+    """Print message safely, handling Windows console encoding issues."""
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        # Remove emojis and special characters if encoding fails
+        safe_message = message.encode('ascii', 'ignore').decode('ascii')
+        print(safe_message)
 
 # --- PATH CONFIGURATION ---
 
@@ -19,11 +30,11 @@ DB_PATH = os.path.join(DATABASE_DIR, 'project.db')
 # --- INITIALIZATION FUNCTION ---
 def initialize_filesystem():
     """Ensures all necessary static and internal directories exist."""
-    print("🛠️ Initializing filesystem...")
+    safe_print("[INFO] Initializing filesystem...")
     # Create static/internal folders
     for folder in [UPLOAD_FOLDER, MATCHES_FOLDER, REPORTS_FOLDER, MODELS_FOLDER, DATABASE_DIR]:
         os.makedirs(folder, exist_ok=True)
-    print("🛠️ Filesystem checks complete.")
+    safe_print("[INFO] Filesystem checks complete.")
 
 # EXECUTE FOLDER CREATION IMMEDIATELY WHEN MODULE IS IMPORTED
 # This runs once when the Flask app starts.
@@ -31,9 +42,9 @@ initialize_filesystem()
 
 # --- DEEP LEARNING CONFIGURATION ---
 
-# (UPDATED) 0.70 is a balanced, high-security threshold for aligned FaceNet.
-# 0.75 was likely too strict and would miss many potential matches.
-SIMILARITY_THRESHOLD = 0.70
+# High-accuracy threshold for ArcFace embeddings (0.75+ as specified)
+# ArcFace provides superior accuracy compared to FaceNet, allowing for stricter thresholds
+SIMILARITY_THRESHOLD = 0.75
 
 # (UPDATED) Skip 10 frames to balance processing speed and detection recall.
 # 5 was processing too many frames for this heavy pipeline.
