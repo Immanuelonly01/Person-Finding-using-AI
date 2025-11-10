@@ -337,15 +337,24 @@ This project is for educational purposes (Final Year Project).
 
 ---
 
-## 🤝 Support
+## 🤝 Support & Contact
 
-For issues or questions:
+For issues, questions, or collaboration opportunities:
+
+- **Email:** [immanuelonly01@gmail.com](mailto:immanuelonly01@gmail.com)
+- **LinkedIn:** [Immanuel](https://www.linkedin.com/in/immanuelonly/)
+- **GitHub:** [@Immanuelonly01](https://github.com/Immanuelonly01)
+
+**Before contacting:**
 1. Check the troubleshooting section above
 2. Review backend console logs
 3. Check browser developer console
 4. Verify all environment variables are set correctly
+5. Open an issue on GitHub for bug reports
 
 ---
 
 **Happy Searching! 🎯**
+
+**Project by Immanuel** | Final Year Project
 

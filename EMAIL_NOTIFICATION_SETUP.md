@@ -75,3 +75,15 @@ This will:
 - Get your chat ID from @userinfobot
 - Check that bot token and chat ID are correct in `.env`
 
+---
+
+## 📞 Contact & Support
+
+For issues, questions, or collaboration:
+
+- **Email:** [immanuelonly01@gmail.com](mailto:immanuelonly01@gmail.com)
+- **LinkedIn:** [Immanuel](https://www.linkedin.com/in/immanuelonly/)
+- **GitHub:** [@Immanuelonly01](https://github.com/Immanuelonly01)
+
+**Project by Immanuel** | Final Year Project
+
